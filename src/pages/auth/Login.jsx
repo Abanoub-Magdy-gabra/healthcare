@@ -43,7 +43,7 @@ const Login = () => {
 
       if (user) {
         // Login successful - navigate to dashboard
-        navigate("/dashboard");
+        navigate("/dashboard", { replace: true });
       }
     } catch (err) {
       setError("Failed to log in");

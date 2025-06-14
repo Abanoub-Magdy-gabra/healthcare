@@ -13,300 +13,476 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export const dbService = {
   // Profile operations
   async getProfile(userId) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      
+      if (error) {
+        console.error('Error fetching profile:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Profile fetch error:', error)
+      throw error
+    }
   },
 
   async updateProfile(userId, updates) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', userId)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error updating profile:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Profile update error:', error)
+      throw error
+    }
   },
 
   async createProfile(profile) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .insert(profile)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert(profile)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error creating profile:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Profile creation error:', error)
+      throw error
+    }
   },
 
   // Appointments operations
   async getAppointments(userId, role) {
-    let query = supabase
-      .from('appointments')
-      .select(`
-        *,
-        patient:profiles!appointments_patient_id_fkey(full_name, email),
-        doctor:profiles!appointments_doctor_id_fkey(full_name, email, specialization)
-      `)
+    try {
+      let query = supabase
+        .from('appointments')
+        .select(`
+          *,
+          patient:profiles!appointments_patient_id_fkey(full_name, email),
+          doctor:profiles!appointments_doctor_id_fkey(full_name, email, specialization)
+        `)
 
-    if (role === 'patient') {
-      query = query.eq('patient_id', userId)
-    } else if (role === 'doctor') {
-      query = query.eq('doctor_id', userId)
+      if (role === 'patient') {
+        query = query.eq('patient_id', userId)
+      } else if (role === 'doctor') {
+        query = query.eq('doctor_id', userId)
+      }
+
+      const { data, error } = await query.order('appointment_date', { ascending: true })
+      
+      if (error) {
+        console.error('Error fetching appointments:', error)
+        throw error
+      }
+      return data || []
+    } catch (error) {
+      console.error('Appointments fetch error:', error)
+      return []
     }
-
-    const { data, error } = await query.order('appointment_date', { ascending: true })
-    
-    if (error) throw error
-    return data
   },
 
   async createAppointment(appointment) {
-    const { data, error } = await supabase
-      .from('appointments')
-      .insert(appointment)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .insert(appointment)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error creating appointment:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Appointment creation error:', error)
+      throw error
+    }
   },
 
   async updateAppointment(id, updates) {
-    const { data, error } = await supabase
-      .from('appointments')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error updating appointment:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Appointment update error:', error)
+      throw error
+    }
   },
 
   // Medical records operations
   async getMedicalRecords(patientId) {
-    const { data, error } = await supabase
-      .from('medical_records')
-      .select(`
-        *,
-        doctor:profiles!medical_records_doctor_id_fkey(full_name, specialization)
-      `)
-      .eq('patient_id', patientId)
-      .order('record_date', { ascending: false })
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('medical_records')
+        .select(`
+          *,
+          doctor:profiles!medical_records_doctor_id_fkey(full_name, specialization)
+        `)
+        .eq('patient_id', patientId)
+        .order('record_date', { ascending: false })
+      
+      if (error) {
+        console.error('Error fetching medical records:', error)
+        throw error
+      }
+      return data || []
+    } catch (error) {
+      console.error('Medical records fetch error:', error)
+      return []
+    }
   },
 
   async createMedicalRecord(record) {
-    const { data, error } = await supabase
-      .from('medical_records')
-      .insert(record)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('medical_records')
+        .insert(record)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error creating medical record:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Medical record creation error:', error)
+      throw error
+    }
   },
 
   // Room operations
   async getRooms() {
-    const { data, error } = await supabase
-      .from('rooms')
-      .select('*')
-      .order('room_number')
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('rooms')
+        .select('*')
+        .order('room_number')
+      
+      if (error) {
+        console.error('Error fetching rooms:', error)
+        throw error
+      }
+      return data || []
+    } catch (error) {
+      console.error('Rooms fetch error:', error)
+      return []
+    }
   },
 
   async getRoomBookings(userId, role) {
-    let query = supabase
-      .from('room_bookings')
-      .select(`
-        *,
-        patient:profiles!room_bookings_patient_id_fkey(full_name, email),
-        room:rooms(room_number, room_type, daily_rate)
-      `)
+    try {
+      let query = supabase
+        .from('room_bookings')
+        .select(`
+          *,
+          patient:profiles!room_bookings_patient_id_fkey(full_name, email),
+          room:rooms(room_number, room_type, daily_rate)
+        `)
 
-    if (role === 'patient') {
-      query = query.eq('patient_id', userId)
+      if (role === 'patient') {
+        query = query.eq('patient_id', userId)
+      }
+
+      const { data, error } = await query.order('check_in_date', { ascending: false })
+      
+      if (error) {
+        console.error('Error fetching room bookings:', error)
+        throw error
+      }
+      return data || []
+    } catch (error) {
+      console.error('Room bookings fetch error:', error)
+      return []
     }
-
-    const { data, error } = await query.order('check_in_date', { ascending: false })
-    
-    if (error) throw error
-    return data
   },
 
   async createRoomBooking(booking) {
-    const { data, error } = await supabase
-      .from('room_bookings')
-      .insert(booking)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('room_bookings')
+        .insert(booking)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error creating room booking:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Room booking creation error:', error)
+      throw error
+    }
   },
 
   // Payment operations
   async getPayments(userId, role) {
-    let query = supabase
-      .from('payments')
-      .select(`
-        *,
-        patient:profiles!payments_patient_id_fkey(full_name, email)
-      `)
+    try {
+      let query = supabase
+        .from('payments')
+        .select(`
+          *,
+          patient:profiles!payments_patient_id_fkey(full_name, email)
+        `)
 
-    if (role === 'patient') {
-      query = query.eq('patient_id', userId)
+      if (role === 'patient') {
+        query = query.eq('patient_id', userId)
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('Error fetching payments:', error)
+        throw error
+      }
+      return data || []
+    } catch (error) {
+      console.error('Payments fetch error:', error)
+      return []
     }
-
-    const { data, error } = await query.order('created_at', { ascending: false })
-    
-    if (error) throw error
-    return data
   },
 
   async createPayment(payment) {
-    const { data, error } = await supabase
-      .from('payments')
-      .insert(payment)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .insert(payment)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error creating payment:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Payment creation error:', error)
+      throw error
+    }
   },
 
   async updatePayment(id, updates) {
-    const { data, error } = await supabase
-      .from('payments')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error updating payment:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Payment update error:', error)
+      throw error
+    }
   },
 
   // Messages operations
   async getMessages(userId) {
-    const { data, error } = await supabase
-      .from('messages')
-      .select(`
-        *,
-        sender:profiles!messages_sender_id_fkey(full_name, role),
-        recipient:profiles!messages_recipient_id_fkey(full_name, role)
-      `)
-      .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
-      .order('created_at', { ascending: false })
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          sender:profiles!messages_sender_id_fkey(full_name, role),
+          recipient:profiles!messages_recipient_id_fkey(full_name, role)
+        `)
+        .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('Error fetching messages:', error)
+        throw error
+      }
+      return data || []
+    } catch (error) {
+      console.error('Messages fetch error:', error)
+      return []
+    }
   },
 
   async createMessage(message) {
-    const { data, error } = await supabase
-      .from('messages')
-      .insert(message)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .insert(message)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error creating message:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Message creation error:', error)
+      throw error
+    }
   },
 
   async markMessageAsRead(id) {
-    const { data, error } = await supabase
-      .from('messages')
-      .update({ is_read: true })
-      .eq('id', id)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error marking message as read:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Message update error:', error)
+      throw error
+    }
   },
 
   // Nurse requests operations
   async getNurseRequests(userId, role) {
-    let query = supabase
-      .from('nurse_requests')
-      .select(`
-        *,
-        patient:profiles!nurse_requests_patient_id_fkey(full_name, email, phone),
-        nurse:profiles!nurse_requests_nurse_id_fkey(full_name, email, phone)
-      `)
+    try {
+      let query = supabase
+        .from('nurse_requests')
+        .select(`
+          *,
+          patient:profiles!nurse_requests_patient_id_fkey(full_name, email, phone),
+          nurse:profiles!nurse_requests_nurse_id_fkey(full_name, email, phone)
+        `)
 
-    if (role === 'patient') {
-      query = query.eq('patient_id', userId)
-    } else if (role === 'nurse') {
-      query = query.or(`nurse_id.eq.${userId},nurse_id.is.null`)
+      if (role === 'patient') {
+        query = query.eq('patient_id', userId)
+      } else if (role === 'nurse') {
+        query = query.or(`nurse_id.eq.${userId},nurse_id.is.null`)
+      }
+
+      const { data, error } = await query.order('requested_date', { ascending: true })
+      
+      if (error) {
+        console.error('Error fetching nurse requests:', error)
+        throw error
+      }
+      return data || []
+    } catch (error) {
+      console.error('Nurse requests fetch error:', error)
+      return []
     }
-
-    const { data, error } = await query.order('requested_date', { ascending: true })
-    
-    if (error) throw error
-    return data
   },
 
   async createNurseRequest(request) {
-    const { data, error } = await supabase
-      .from('nurse_requests')
-      .insert(request)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('nurse_requests')
+        .insert(request)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error creating nurse request:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Nurse request creation error:', error)
+      throw error
+    }
   },
 
   async updateNurseRequest(id, updates) {
-    const { data, error } = await supabase
-      .from('nurse_requests')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('nurse_requests')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error updating nurse request:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Nurse request update error:', error)
+      throw error
+    }
   },
 
   // Admin operations
   async getAllUsers() {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('Error fetching all users:', error)
+        throw error
+      }
+      return data || []
+    } catch (error) {
+      console.error('Users fetch error:', error)
+      return []
+    }
   },
 
   async getAuditLogs() {
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select(`
-        *,
-        user:profiles(full_name, email, role)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(100)
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select(`
+          *,
+          user:profiles(full_name, email, role)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100)
+      
+      if (error) {
+        console.error('Error fetching audit logs:', error)
+        throw error
+      }
+      return data || []
+    } catch (error) {
+      console.error('Audit logs fetch error:', error)
+      return []
+    }
   },
 
   // Statistics for dashboards
@@ -343,7 +519,7 @@ export const dbService = {
           new Date(a.appointment_date).toDateString() === new Date().toDateString()
         ).length
         stats.totalAppointments = appointments.length
-        stats.uniquePatients = new Set(patients.data?.map(p => p.patient_id)).size
+        stats.uniquePatients = new Set(patients.data?.map(p => p.patient_id) || []).size
         stats.pendingAppointments = appointments.filter(a => a.status === 'pending').length
       }
 
@@ -356,7 +532,7 @@ export const dbService = {
         stats.activeRequests = requests.filter(r => r.status === 'in_progress').length
         stats.pendingRequests = requests.filter(r => r.status === 'pending').length
         stats.totalRequests = requests.length
-        stats.uniquePatients = new Set(patients.data?.map(p => p.patient_id)).size
+        stats.uniquePatients = new Set(patients.data?.map(p => p.patient_id) || []).size
       }
 
       if (role === 'admin') {

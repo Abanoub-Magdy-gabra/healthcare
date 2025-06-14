@@ -12,11 +12,21 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     let mounted = true;
+    let authSubscription = null;
 
-    // Get initial session
-    const getInitialSession = async () => {
+    const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Get initial session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          if (mounted) {
+            setLoading(false);
+          }
+          return;
+        }
+
         if (mounted) {
           if (session?.user) {
             await loadUserProfile(session.user);
@@ -26,36 +36,46 @@ export const AuthProvider = ({ children }) => {
           }
           setLoading(false);
         }
+
+        // Set up auth state listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log('Auth state changed:', event, session?.user?.email);
+            
+            if (!mounted) return;
+
+            try {
+              if (session?.user) {
+                await loadUserProfile(session.user);
+              } else {
+                setUser(null);
+                setProfile(null);
+              }
+            } catch (error) {
+              console.error('Error in auth state change:', error);
+            }
+          }
+        );
+
+        authSubscription = subscription;
+
       } catch (error) {
-        console.error('Error getting initial session:', error);
+        console.error('Error initializing auth:', error);
         if (mounted) {
           setLoading(false);
         }
       }
     };
 
-    getInitialSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (mounted) {
-          if (session?.user) {
-            await loadUserProfile(session.user);
-          } else {
-            setUser(null);
-            setProfile(null);
-          }
-          setLoading(false);
-        }
-      }
-    );
+    initializeAuth();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
     };
-  }, []);
+  }, []); // Empty dependency array
 
   const loadUserProfile = async (authUser) => {
     try {
@@ -64,6 +84,7 @@ export const AuthProvider = ({ children }) => {
       setProfile(profile);
     } catch (error) {
       console.error('Error loading user profile:', error);
+      // Set user even if profile fails to load
       setUser(authUser);
       setProfile(null);
     }

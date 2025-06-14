@@ -35,10 +35,14 @@ function App() {
       theme === "dark" ? "dark bg-gray-900" : "bg-gray-50";
   }, [theme]);
 
+  // Show loading spinner while auth is initializing
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -52,7 +56,7 @@ function App() {
       <Route path="/doctors" element={<Doctors />} />
       <Route path="/contact" element={<Contact />} />
 
-      {/* Auth Routes */}
+      {/* Auth Routes - redirect if already logged in */}
       <Route
         path="/login"
         element={!user ? <Login /> : <Navigate to="/dashboard" replace />}
@@ -66,9 +70,8 @@ function App() {
         element={!user ? <ForgotPassword /> : <Navigate to="/dashboard" replace />}
       />
 
-      {/* Protected Routes */}
+      {/* Protected Dashboard Route */}
       <Route element={<MainLayout />}>
-        {/* Dashboard routing based on user role */}
         <Route
           path="/dashboard"
           element={
