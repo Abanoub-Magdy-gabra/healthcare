@@ -132,6 +132,7 @@ const NurseDashboard = () => {
   };
 
   const handleNavigation = (section) => {
+    console.log('Nurse navigating to section:', section);
     setActiveCase(section);
   };
 
@@ -338,6 +339,295 @@ const NurseDashboard = () => {
     </div>
   );
 
+  const renderPatients = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Patients</h2>
+        <div className="flex space-x-3">
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search patients..."
+              className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-6">
+          <div className="space-y-4">
+            {patients.map((patient) => (
+              <div key={patient.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {patient.full_name}
+                      </h3>
+                      <span className="text-sm text-blue-600 dark:text-blue-400">
+                        {patient.requestType}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center">
+                        <Mail className="h-4 w-4 mr-1" />
+                        {patient.email}
+                      </div>
+                      <div className="flex items-center">
+                        <Phone className="h-4 w-4 mr-1" />
+                        {patient.phone}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        Last visit: {formatDate(patient.lastVisit)}
+                      </div>
+                      <div className="flex items-center">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        Home care
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      patient.status === 'completed' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : patient.status === 'in_progress'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                    }`}>
+                      {patient.status.replace('_', ' ')}
+                    </span>
+                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {patients.length === 0 && (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No patients assigned yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderShifts = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Shifts</h2>
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+          <Plus className="h-4 w-4 mr-2" />
+          Request Shift
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-6">
+          <div className="space-y-4">
+            {shifts.map((shift) => (
+              <div key={shift.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {shift.location}
+                      </h3>
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {formatDate(shift.date)}
+                      </div>
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 mr-1" />
+                        {shift.startTime} - {shift.endTime}
+                      </div>
+                      <div className="flex items-center">
+                        <Users className="h-4 w-4 mr-1" />
+                        {shift.patients} patients
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      shift.status === 'completed' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : shift.status === 'scheduled'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                    }`}>
+                      {shift.status}
+                    </span>
+                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {shifts.length === 0 && (
+              <div className="text-center py-8">
+                <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No shifts scheduled</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderRequests = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Care Requests</h2>
+        <div className="flex space-x-3">
+          <button className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg flex items-center">
+            <Filter className="h-4 w-4 mr-2" />
+            Filter
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-6">
+          <div className="space-y-4">
+            {requests.map((request) => (
+              <div key={request.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {request.patient?.full_name}
+                      </h3>
+                      <span className="text-sm text-blue-600 dark:text-blue-400">
+                        {request.request_type}
+                      </span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        request.priority === 'urgent' 
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                          : request.priority === 'high'
+                          ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                      }`}>
+                        {request.priority}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      {request.description}
+                    </p>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {formatDate(request.requested_date)}
+                      </div>
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 mr-1" />
+                        {formatTime(request.requested_time)} ({request.duration_hours}h)
+                      </div>
+                      <div className="flex items-center">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        {request.address}
+                      </div>
+                    </div>
+                    {request.services && request.services.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {request.services.map((service, index) => (
+                          <span key={index} className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                            {service}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      request.status === 'completed' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : request.status === 'in_progress'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : request.status === 'confirmed'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                    }`}>
+                      {request.status.replace('_', ' ')}
+                    </span>
+                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {requests.length === 0 && (
+              <div className="text-center py-8">
+                <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No care requests available</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderReports = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reports</h2>
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+          <Plus className="h-4 w-4 mr-2" />
+          Create Report
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-6">
+          <div className="text-center py-8">
+            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">Reports feature coming soon</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMessages = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Messages</h2>
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+          <Plus className="h-4 w-4 mr-2" />
+          New Message
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-6">
+          <div className="text-center py-8">
+            <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">Messages feature coming soon</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderProfile = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -383,7 +673,7 @@ const NurseDashboard = () => {
                   {user.department}
                 </span>
               )}
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-sm text-gray-500  dark:text-gray-400">
                 {user?.experience_years} years experience
               </span>
             </div>
@@ -556,6 +846,48 @@ const NurseDashboard = () => {
     </div>
   );
 
+  const renderSettings = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h2>
+      
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Notifications</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">New Care Requests</span>
+                <input type="checkbox" className="toggle" defaultChecked />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Shift Reminders</span>
+                <input type="checkbox" className="toggle" defaultChecked />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Patient Updates</span>
+                <input type="checkbox" className="toggle" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Availability</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Available for home visits</span>
+                <input type="checkbox" className="toggle" defaultChecked />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Emergency calls</span>
+                <input type="checkbox" className="toggle" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -565,11 +897,25 @@ const NurseDashboard = () => {
       );
     }
 
+    console.log('Nurse rendering content for activeCase:', activeCase);
+
     switch (activeCase) {
       case 'dashboard':
         return renderDashboardOverview();
+      case 'patients':
+        return renderPatients();
+      case 'shifts':
+        return renderShifts();
+      case 'requests':
+        return renderRequests();
+      case 'reports':
+        return renderReports();
+      case 'messages':
+        return renderMessages();
       case 'profile':
         return renderProfile();
+      case 'settings':
+        return renderSettings();
       default:
         return renderDashboardOverview();
     }

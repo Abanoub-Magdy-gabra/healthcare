@@ -26,7 +26,8 @@ import {
   Save,
   Camera,
   Stethoscope,
-  GraduationCap
+  GraduationCap,
+  MessageSquare
 } from 'lucide-react';
 
 const DoctorDashboard = () => {
@@ -132,6 +133,7 @@ const DoctorDashboard = () => {
   };
 
   const handleNavigation = (section) => {
+    console.log('Doctor navigating to section:', section);
     setActiveCase(section);
   };
 
@@ -333,6 +335,264 @@ const DoctorDashboard = () => {
             <FileText className="h-8 w-8 text-orange-600 dark:text-orange-400 mb-2" />
             <span className="text-sm font-medium text-orange-600 dark:text-orange-400">Reports</span>
           </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAppointments = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Appointments</h2>
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Appointment
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-6">
+          <div className="space-y-4">
+            {appointments.map((appointment) => (
+              <div key={appointment.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {appointment.patient?.full_name}
+                      </h3>
+                      <span className="text-sm text-blue-600 dark:text-blue-400">
+                        {appointment.appointment_type}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {formatDate(appointment.appointment_date)}
+                      </div>
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 mr-1" />
+                        {formatTime(appointment.appointment_time)} ({appointment.duration_minutes}min)
+                      </div>
+                    </div>
+                    {appointment.notes && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                        Notes: {appointment.notes}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      appointment.status === 'confirmed' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : appointment.status === 'pending'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                    }`}>
+                      {appointment.status}
+                    </span>
+                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {appointments.length === 0 && (
+              <div className="text-center py-8">
+                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No appointments scheduled</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPatients = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Patients</h2>
+        <div className="flex space-x-3">
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search patients..."
+              className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-6">
+          <div className="space-y-4">
+            {patients.map((patient) => (
+              <div key={patient.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {patient.full_name}
+                      </h3>
+                      <span className="text-sm text-blue-600 dark:text-blue-400">
+                        {patient.appointmentType}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center">
+                        <Mail className="h-4 w-4 mr-1" />
+                        {patient.email}
+                      </div>
+                      <div className="flex items-center">
+                        <Phone className="h-4 w-4 mr-1" />
+                        {patient.phone}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        Last visit: {formatDate(patient.lastVisit)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      patient.status === 'completed' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : patient.status === 'confirmed'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                    }`}>
+                      {patient.status}
+                    </span>
+                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {patients.length === 0 && (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No patients assigned yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSchedule = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Schedule</h2>
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Schedule
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-6">
+          <div className="space-y-4">
+            {schedule.map((shift) => (
+              <div key={shift.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {shift.location}
+                      </h3>
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {formatDate(shift.date)}
+                      </div>
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 mr-1" />
+                        {shift.startTime} - {shift.endTime}
+                      </div>
+                      <div className="flex items-center">
+                        <Users className="h-4 w-4 mr-1" />
+                        {shift.appointments} appointments
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      shift.status === 'completed' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : shift.status === 'scheduled'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                    }`}>
+                      {shift.status}
+                    </span>
+                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {schedule.length === 0 && (
+              <div className="text-center py-8">
+                <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No schedule available</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderReports = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reports</h2>
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+          <Plus className="h-4 w-4 mr-2" />
+          Create Report
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-6">
+          <div className="text-center py-8">
+            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">Reports feature coming soon</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMessages = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Messages</h2>
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+          <Plus className="h-4 w-4 mr-2" />
+          New Message
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-6">
+          <div className="text-center py-8">
+            <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">Messages feature coming soon</p>
+          </div>
         </div>
       </div>
     </div>
@@ -572,6 +832,48 @@ const DoctorDashboard = () => {
     </div>
   );
 
+  const renderSettings = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h2>
+      
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Notifications</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">New Appointments</span>
+                <input type="checkbox" className="toggle" defaultChecked />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Patient Messages</span>
+                <input type="checkbox" className="toggle" defaultChecked />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Schedule Changes</span>
+                <input type="checkbox" className="toggle" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Availability</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Available for consultations</span>
+                <input type="checkbox" className="toggle" defaultChecked />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Emergency calls</span>
+                <input type="checkbox" className="toggle" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -581,11 +883,25 @@ const DoctorDashboard = () => {
       );
     }
 
+    console.log('Doctor rendering content for activeCase:', activeCase);
+
     switch (activeCase) {
       case 'dashboard':
         return renderDashboardOverview();
+      case 'appointments':
+        return renderAppointments();
+      case 'patients':
+        return renderPatients();
+      case 'schedule':
+        return renderSchedule();
+      case 'reports':
+        return renderReports();
+      case 'messages':
+        return renderMessages();
       case 'profile':
         return renderProfile();
+      case 'settings':
+        return renderSettings();
       default:
         return renderDashboardOverview();
     }
