@@ -129,6 +129,8 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       
+      console.log('Registering user with data:', userData); // Debug log
+      
       // Sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
@@ -138,16 +140,18 @@ export const AuthProvider = ({ children }) => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Create profile
+        // Create profile with the correct role
         const profileData = {
           id: authData.user.id,
           email,
           full_name: userData.name,
-          role: userData.role || 'patient',
+          role: userData.role || 'patient', // Use the role from userData
           phone: userData.phone || null,
           date_of_birth: userData.dateOfBirth || null,
           address: userData.address || null,
         };
+
+        console.log('Creating profile with data:', profileData); // Debug log
 
         await dbService.createProfile(profileData);
       }

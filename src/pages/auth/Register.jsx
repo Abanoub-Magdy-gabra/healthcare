@@ -20,7 +20,7 @@ const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState("");
+  const [role, setRole] = useState("patient"); // Set default to patient
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [address, setAddress] = useState("");
@@ -59,8 +59,10 @@ const Register = () => {
         phone,
         dateOfBirth,
         address,
-        role
+        role // Make sure role is passed correctly
       };
+
+      console.log('Registering user with role:', role); // Debug log
 
       const { user, error: registerError } = await register(email, password, userData);
       
@@ -71,7 +73,7 @@ const Register = () => {
 
       if (user) {
         // Registration successful
-        alert("Account created successfully! Please check your email to verify your account, then login.");
+        alert(`Account created successfully as ${role}! Please check your email to verify your account, then login.`);
         navigate("/login");
       }
     } catch (err) {
@@ -263,7 +265,7 @@ const Register = () => {
                   htmlFor="role"
                   className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Role *
+                  Role * <span className="text-blue-600 dark:text-blue-400">(Selected: {role})</span>
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -274,7 +276,10 @@ const Register = () => {
                     name="role"
                     required
                     value={role}
-                    onChange={(e) => setRole(e.target.value)}
+                    onChange={(e) => {
+                      console.log('Role changed to:', e.target.value); // Debug log
+                      setRole(e.target.value);
+                    }}
                     className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
                   >
                     <option value="">Select your role</option>
@@ -456,7 +461,7 @@ const Register = () => {
                 </div>
               ) : (
                 <div className="flex items-center">
-                  Create Account
+                  Create Account as {role ? roleOptions.find(r => r.value === role)?.label : 'User'}
                   <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               )}
