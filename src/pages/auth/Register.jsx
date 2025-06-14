@@ -20,7 +20,7 @@ const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState("patient"); // Set default to patient
+  const [role, setRole] = useState(""); // Start with empty role to force selection
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [address, setAddress] = useState("");
@@ -59,10 +59,11 @@ const Register = () => {
         phone,
         dateOfBirth,
         address,
-        role // Make sure role is passed correctly
+        role // This should be the selected role
       };
 
-      console.log('Registering user with role:', role); // Debug log
+      console.log('Submitting registration with role:', role); // Debug log
+      console.log('Full userData:', userData); // Debug log
 
       const { user, error: registerError } = await register(email, password, userData);
       
@@ -73,7 +74,7 @@ const Register = () => {
 
       if (user) {
         // Registration successful
-        alert(`Account created successfully as ${role}! Please check your email to verify your account, then login.`);
+        alert(`Account created successfully as ${role}! You can now login with your credentials.`);
         navigate("/login");
       }
     } catch (err) {
@@ -265,7 +266,7 @@ const Register = () => {
                   htmlFor="role"
                   className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Role * <span className="text-blue-600 dark:text-blue-400">(Selected: {role})</span>
+                  Role * {role && <span className="text-blue-600 dark:text-blue-400">(Selected: {roleOptions.find(r => r.value === role)?.label})</span>}
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -277,7 +278,7 @@ const Register = () => {
                     required
                     value={role}
                     onChange={(e) => {
-                      console.log('Role changed to:', e.target.value); // Debug log
+                      console.log('Role selection changed to:', e.target.value); // Debug log
                       setRole(e.target.value);
                     }}
                     className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
@@ -291,9 +292,14 @@ const Register = () => {
                   </select>
                 </div>
                 {role && (
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    {roleOptions.find((opt) => opt.value === role)?.description}
-                  </p>
+                  <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                      {roleOptions.find((opt) => opt.value === role)?.label}
+                    </p>
+                    <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                      {roleOptions.find((opt) => opt.value === role)?.description}
+                    </p>
+                  </div>
                 )}
               </div>
 
@@ -312,7 +318,7 @@ const Register = () => {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="appearance-none block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="+20 1234567890"
                 />
               </div>
 
@@ -349,7 +355,7 @@ const Register = () => {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   className="appearance-none block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500 resize-none"
-                  placeholder="123 Main St, City, State, ZIP"
+                  placeholder="123 Main St, Cairo, Egypt"
                 />
               </div>
 
@@ -451,7 +457,7 @@ const Register = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !role}
               className="group relative w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transform transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
             >
               {loading ? (
@@ -461,7 +467,7 @@ const Register = () => {
                 </div>
               ) : (
                 <div className="flex items-center">
-                  Create Account as {role ? roleOptions.find(r => r.value === role)?.label : 'User'}
+                  Create Account {role && `as ${roleOptions.find(r => r.value === role)?.label}`}
                   <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               )}

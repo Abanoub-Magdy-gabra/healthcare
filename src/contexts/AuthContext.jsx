@@ -129,7 +129,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      console.log('Registering user with data:', userData); // Debug log
+      console.log('Starting registration process with userData:', userData); // Debug log
       
       // Sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -137,23 +137,28 @@ export const AuthProvider = ({ children }) => {
         password,
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        console.error('Auth signup error:', authError);
+        throw authError;
+      }
 
       if (authData.user) {
-        // Create profile with the correct role
+        // Create profile with the exact role provided
         const profileData = {
           id: authData.user.id,
           email,
           full_name: userData.name,
-          role: userData.role || 'patient', // Use the role from userData
+          role: userData.role, // Use the exact role from userData - no fallback to 'patient'
           phone: userData.phone || null,
           date_of_birth: userData.dateOfBirth || null,
           address: userData.address || null,
         };
 
-        console.log('Creating profile with data:', profileData); // Debug log
+        console.log('Creating profile with exact role:', profileData.role); // Debug log
+        console.log('Full profile data:', profileData); // Debug log
 
-        await dbService.createProfile(profileData);
+        const createdProfile = await dbService.createProfile(profileData);
+        console.log('Profile created successfully:', createdProfile); // Debug log
       }
 
       return { user: authData.user, error: null };
