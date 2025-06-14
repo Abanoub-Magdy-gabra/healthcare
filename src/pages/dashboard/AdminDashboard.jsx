@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext.jsx';
+import { dbService } from '../../lib/supabase.js';
 import DashboardLayout from '../../components/layout/DashboardLayout.jsx';
 import {
   Users,
@@ -35,143 +36,39 @@ const AdminDashboard = () => {
   const [payments, setPayments] = useState([]);
   const [reports, setReports] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadAdminData();
-  }, []);
+    if (user?.id) {
+      loadAdminData();
+    }
+  }, [user]);
 
   const loadAdminData = async () => {
     setLoading(true);
     try {
-      // Mock data - replace with actual Supabase queries
-      setUsers([
-        {
-          id: 1,
-          name: 'Dr. Sarah Johnson',
-          email: 'sarah.johnson@hospital.com',
-          role: 'doctor',
-          status: 'active',
-          lastLogin: '2024-01-15 09:30',
-          department: 'Cardiology',
-          joinDate: '2023-01-15'
-        },
-        {
-          id: 2,
-          name: 'Nurse Mary Wilson',
-          email: 'mary.wilson@hospital.com',
-          role: 'nurse',
-          status: 'active',
-          lastLogin: '2024-01-15 08:45',
-          department: 'ICU',
-          joinDate: '2023-03-20'
-        },
-        {
-          id: 3,
-          name: 'John Smith',
-          email: 'john.smith@email.com',
-          role: 'patient',
-          status: 'active',
-          lastLogin: '2024-01-14 16:20',
-          department: null,
-          joinDate: '2023-06-10'
-        },
-        {
-          id: 4,
-          name: 'Dr. Michael Chen',
-          email: 'michael.chen@hospital.com',
-          role: 'doctor',
-          status: 'inactive',
-          lastLogin: '2024-01-10 14:15',
-          department: 'Neurology',
-          joinDate: '2022-11-05'
-        }
+      const [
+        usersData,
+        roomsData,
+        paymentsData,
+        activitiesData,
+        statsData
+      ] = await Promise.all([
+        dbService.getAllUsers(),
+        dbService.getRooms(),
+        dbService.getPayments(user.id, 'admin'),
+        dbService.getAuditLogs(),
+        dbService.getDashboardStats(user.id, 'admin')
       ]);
 
-      setRooms([
-        {
-          id: 1,
-          number: '101A',
-          type: 'Private',
-          status: 'occupied',
-          patient: 'John Smith',
-          checkIn: '2024-01-10',
-          checkOut: '2024-01-17',
-          dailyRate: 300,
-          equipment: ['Heart Monitor', 'IV Stand'],
-          floor: 1
-        },
-        {
-          id: 2,
-          number: '102B',
-          type: 'Semi-Private',
-          status: 'available',
-          patient: null,
-          checkIn: null,
-          checkOut: null,
-          dailyRate: 200,
-          equipment: ['Basic Monitoring'],
-          floor: 1
-        },
-        {
-          id: 3,
-          number: '201A',
-          type: 'ICU',
-          status: 'occupied',
-          patient: 'Mary Johnson',
-          checkIn: '2024-01-12',
-          checkOut: '2024-01-20',
-          dailyRate: 500,
-          equipment: ['Ventilator', 'Heart Monitor', 'IV Pump'],
-          floor: 2
-        },
-        {
-          id: 4,
-          number: '202B',
-          type: 'Private',
-          status: 'maintenance',
-          patient: null,
-          checkIn: null,
-          checkOut: null,
-          dailyRate: 300,
-          equipment: ['Heart Monitor'],
-          floor: 2
-        }
-      ]);
+      setUsers(usersData || []);
+      setRooms(roomsData || []);
+      setPayments(paymentsData || []);
+      setActivities(activitiesData || []);
+      setStats(statsData || {});
 
-      setPayments([
-        {
-          id: 1,
-          patient: 'John Smith',
-          amount: 2100,
-          type: 'Room Charges',
-          status: 'paid',
-          date: '2024-01-15',
-          method: 'Insurance',
-          invoiceId: 'INV-001'
-        },
-        {
-          id: 2,
-          patient: 'Mary Johnson',
-          amount: 850,
-          type: 'Consultation',
-          status: 'pending',
-          date: '2024-01-14',
-          method: 'Credit Card',
-          invoiceId: 'INV-002'
-        },
-        {
-          id: 3,
-          patient: 'Robert Wilson',
-          amount: 1200,
-          type: 'Lab Tests',
-          status: 'overdue',
-          date: '2024-01-10',
-          method: 'Cash',
-          invoiceId: 'INV-003'
-        }
-      ]);
-
+      // Mock reports data
       setReports([
         {
           id: 1,
@@ -194,58 +91,9 @@ const AdminDashboard = () => {
           date: '2023-12-31',
           satisfaction: 4.2,
           responses: 89
-        },
-        {
-          id: 3,
-          title: 'Staff Performance Review',
-          type: 'hr',
-          period: 'December 2023',
-          status: 'in_progress',
-          generatedBy: 'HR Manager',
-          date: '2024-01-05',
-          staff: 45,
-          completed: 32
         }
       ]);
 
-      setActivities([
-        {
-          id: 1,
-          type: 'user_login',
-          user: 'Dr. Sarah Johnson',
-          action: 'Logged in',
-          timestamp: '2024-01-15 09:30:15',
-          ip: '192.168.1.100',
-          status: 'success'
-        },
-        {
-          id: 2,
-          type: 'room_booking',
-          user: 'John Smith',
-          action: 'Booked room 101A',
-          timestamp: '2024-01-15 09:15:22',
-          ip: '192.168.1.105',
-          status: 'success'
-        },
-        {
-          id: 3,
-          type: 'payment_failed',
-          user: 'Mary Johnson',
-          action: 'Payment failed for invoice INV-002',
-          timestamp: '2024-01-15 08:45:33',
-          ip: '192.168.1.110',
-          status: 'error'
-        },
-        {
-          id: 4,
-          type: 'user_registration',
-          user: 'New Patient',
-          action: 'Account created',
-          timestamp: '2024-01-15 08:30:45',
-          ip: '192.168.1.115',
-          status: 'success'
-        }
-      ]);
     } catch (error) {
       console.error('Error loading admin data:', error);
     } finally {
@@ -257,11 +105,15 @@ const AdminDashboard = () => {
     setActiveCase(section);
   };
 
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
   const renderDashboardOverview = () => (
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">Welcome, {user?.name}!</h1>
+        <h1 className="text-2xl font-bold mb-2">Welcome, {user?.full_name}!</h1>
         <p className="text-indigo-100">System Administrator Dashboard</p>
       </div>
 
@@ -271,9 +123,9 @@ const AdminDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Users</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{users.length}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalUsers || 0}</p>
               <p className="text-xs text-green-600 dark:text-green-400">
-                +{users.filter(u => u.status === 'active').length} active
+                {stats.activeUsers || 0} active
               </p>
             </div>
             <Users className="h-8 w-8 text-blue-500" />
@@ -285,10 +137,10 @@ const AdminDashboard = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Available Rooms</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {rooms.filter(r => r.status === 'available').length}
+                {stats.availableRooms || 0}
               </p>
               <p className="text-xs text-blue-600 dark:text-blue-400">
-                of {rooms.length} total
+                of {stats.totalRooms || 0} total
               </p>
             </div>
             <Building className="h-8 w-8 text-green-500" />
@@ -300,10 +152,10 @@ const AdminDashboard = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Pending Payments</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {payments.filter(p => p.status === 'pending' || p.status === 'overdue').length}
+                {stats.pendingPayments || 0}
               </p>
               <p className="text-xs text-orange-600 dark:text-orange-400">
-                ${payments.filter(p => p.status === 'pending' || p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0).toLocaleString()}
+                Requires attention
               </p>
             </div>
             <CreditCard className="h-8 w-8 text-orange-500" />
@@ -313,15 +165,15 @@ const AdminDashboard = () => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">System Alerts</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Recent Activities</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {activities.filter(a => a.status === 'error').length}
+                {activities.length}
               </p>
-              <p className="text-xs text-red-600 dark:text-red-400">
-                Requires attention
+              <p className="text-xs text-blue-600 dark:text-blue-400">
+                Last 24 hours
               </p>
             </div>
-            <AlertTriangle className="h-8 w-8 text-red-500" />
+            <Activity className="h-8 w-8 text-purple-500" />
           </div>
         </div>
       </div>
@@ -329,22 +181,19 @@ const AdminDashboard = () => {
       {/* Charts and Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Revenue Overview</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">System Overview</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-gray-400">This Month</span>
-              <span className="text-2xl font-bold text-green-600">$125,000</span>
+              <span className="text-gray-600 dark:text-gray-400">Total Users</span>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">{stats.totalUsers || 0}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Last Month</span>
-              <span className="text-lg text-gray-900 dark:text-white">$118,500</span>
+              <span className="text-gray-600 dark:text-gray-400">Active Users</span>
+              <span className="text-lg text-green-600">{stats.activeUsers || 0}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Growth</span>
-              <span className="text-lg text-green-600 flex items-center">
-                <TrendingUp className="h-4 w-4 mr-1" />
-                +5.5%
-              </span>
+              <span className="text-gray-600 dark:text-gray-400">Available Rooms</span>
+              <span className="text-lg text-blue-600">{stats.availableRooms || 0}</span>
             </div>
           </div>
         </div>
@@ -355,19 +204,24 @@ const AdminDashboard = () => {
             {activities.slice(0, 4).map((activity) => (
               <div key={activity.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">{activity.user}</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {activity.user?.full_name || 'System'}
+                  </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{activity.action}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500">{activity.timestamp}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    {formatDate(activity.created_at)}
+                  </p>
                 </div>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  activity.status === 'success' 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                }`}>
-                  {activity.status}
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  {activity.table_name || 'system'}
                 </span>
               </div>
             ))}
+            {activities.length === 0 && (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                No recent activities
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -401,40 +255,39 @@ const AdminDashboard = () => {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-6">
           <div className="space-y-4">
-            {users.map((user) => (
-              <div key={user.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            {users.map((userData) => (
+              <div key={userData.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {user.name}
+                        {userData.full_name}
                       </h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${
-                        user.role === 'admin' 
+                        userData.role === 'admin' 
                           ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                          : user.role === 'doctor'
+                          : userData.role === 'doctor'
                           ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                          : user.role === 'nurse'
+                          : userData.role === 'nurse'
                           ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                           : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                       }`}>
-                        {user.role}
+                        {userData.role}
                       </span>
                     </div>
                     <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                      <span>{user.email}</span>
-                      {user.department && <span>• {user.department}</span>}
-                      <span>• Joined {user.joinDate}</span>
-                      <span>• Last login: {user.lastLogin}</span>
+                      <span>{userData.email}</span>
+                      {userData.department && <span>• {userData.department}</span>}
+                      <span>• Joined {formatDate(userData.created_at)}</span>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      user.status === 'active' 
+                      userData.is_active 
                         ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                         : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                     }`}>
-                      {user.status}
+                      {userData.is_active ? 'active' : 'inactive'}
                     </span>
                     <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                       <Eye className="h-4 w-4" />
@@ -449,6 +302,12 @@ const AdminDashboard = () => {
                 </div>
               </div>
             ))}
+            {users.length === 0 && (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No users found</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -471,10 +330,10 @@ const AdminDashboard = () => {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Room {room.number}
+                  Room {room.room_number}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {room.type} • Floor {room.floor}
+                  {room.room_type} • Floor {room.floor}
                 </p>
               </div>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -492,25 +351,22 @@ const AdminDashboard = () => {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Daily Rate:</span>
                 <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  ${room.dailyRate}
+                  ${room.daily_rate}
                 </span>
               </div>
 
-              {room.patient && (
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Current Patient:</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{room.patient}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500">
-                    {room.checkIn} to {room.checkOut}
-                  </p>
-                </div>
-              )}
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Capacity:</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {room.capacity} patient(s)
+                </span>
+              </div>
 
               <div>
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment:</p>
                 <div className="flex flex-wrap gap-1">
-                  {room.equipment.map((item, index) => (
-                    <span key={index} className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounde">
+                  {room.equipment?.map((item, index) => (
+                    <span key={index} className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
                       {item}
                     </span>
                   ))}
@@ -528,6 +384,12 @@ const AdminDashboard = () => {
             </div>
           </div>
         ))}
+        {rooms.length === 0 && (
+          <div className="col-span-full text-center py-8">
+            <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">No rooms available</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -557,21 +419,21 @@ const AdminDashboard = () => {
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {payment.patient}
+                        {payment.patient?.full_name}
                       </h3>
                       <span className="text-sm text-blue-600 dark:text-blue-400">
-                        {payment.invoiceId}
+                        {payment.invoice_number}
                       </span>
                     </div>
                     <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                      <span>{payment.type}</span>
-                      <span>• {payment.date}</span>
-                      <span>• {payment.method}</span>
+                      <span>{payment.description}</span>
+                      <span>• {formatDate(payment.created_at)}</span>
+                      {payment.payment_method && <span>• {payment.payment_method}</span>}
                     </div>
                   </div>
                   <div className="flex items-center space-x-4">
                     <span className="text-xl font-bold text-gray-900 dark:text-white">
-                      ${payment.amount.toLocaleString()}
+                      ${payment.amount}
                     </span>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       payment.status === 'paid' 
@@ -589,6 +451,12 @@ const AdminDashboard = () => {
                 </div>
               </div>
             ))}
+            {payments.length === 0 && (
+              <div className="text-center py-8">
+                <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No payment records</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -641,11 +509,6 @@ const AdminDashboard = () => {
                         Satisfaction: {report.satisfaction}/5 | Responses: {report.responses}
                       </p>
                     )}
-                    {report.staff && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                        Staff: {report.staff} | Completed: {report.completed}
-                      </p>
-                    )}
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -696,38 +559,29 @@ const AdminDashboard = () => {
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {activity.user}
+                        {activity.user?.full_name || 'System'}
                       </h3>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        activity.type === 'user_login' 
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                          : activity.type === 'room_booking'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                          : activity.type === 'payment_failed'
-                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                          : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                      }`}>
-                        {activity.type.replace('_', ' ')}
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        {activity.table_name || 'system'}
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                       {activity.action}
                     </p>
                     <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-500">
-                      <span>{activity.timestamp}</span>
-                      <span>IP: {activity.ip}</span>
+                      <span>{formatDate(activity.created_at)}</span>
+                      {activity.ip_address && <span>IP: {activity.ip_address}</span>}
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    activity.status === 'success' 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                  }`}>
-                    {activity.status}
-                  </span>
                 </div>
               </div>
             ))}
+            {activities.length === 0 && (
+              <div className="text-center py-8">
+                <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No activities recorded</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -742,11 +596,11 @@ const AdminDashboard = () => {
         <div className="flex items-center space-x-6 mb-6">
           <div className="w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center">
             <span className="text-2xl font-bold text-white">
-              {user?.name?.charAt(0)?.toUpperCase() || 'A'}
+              {user?.full_name?.charAt(0)?.toUpperCase() || 'A'}
             </span>
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{user?.name}</h3>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{user?.full_name}</h3>
             <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
             <p className="text-sm text-gray-500 dark:text-gray-500">System Administrator</p>
           </div>
@@ -759,7 +613,7 @@ const AdminDashboard = () => {
             </label>
             <input
               type="text"
-              value={user?.name || ''}
+              value={user?.full_name || ''}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               readOnly
             />

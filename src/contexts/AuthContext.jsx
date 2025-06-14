@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { supabase, dbService } from "../lib/supabase.js";
 
 const AuthContext = createContext();
 
@@ -7,116 +8,160 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState(null);
 
-  // Check local storage for user data on initial load
   useEffect(() => {
-    const isLoggedOut = localStorage.getItem("userLoggedOut");
-    if (isLoggedOut === "true") {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
+    // Get initial session
+    getInitialSession();
 
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          await loadUserProfile(session.user);
+        } else {
+          setUser(null);
+          setProfile(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Login function that uses registered user data
-  const login = (email, password) => {
-    // Clear logout flag when logging in
-    localStorage.removeItem("userLoggedOut");
-
-    // Get registered users from localStorage
-    const registeredUsers = JSON.parse(
-      localStorage.getItem("registeredUsers") || "[]"
-    );
-
-   
-
-    // Find user with matching email and password (case-insensitive email)
-    const foundUser = registeredUsers.find(
-      (user) =>
-        user.email.toLowerCase() === email.toLowerCase() &&
-        user.password === password
-    );
-
-
-    if (foundUser) {
-      // Create authenticated user object
-      const authenticatedUser = {
-        id: foundUser.id,
-        name: foundUser.name,
-        email: foundUser.email,
-        role: foundUser.role,
-        isAuthenticated: true,
-        loginAt: new Date().toISOString(),
-        registeredAt: foundUser.registeredAt,
-      };
-
-      // Store user in localStorage
-      localStorage.setItem("user", JSON.stringify(authenticatedUser));
-      setUser(authenticatedUser);
-      console.log("✅ Login successful:", authenticatedUser);
-      return authenticatedUser;
+  const getInitialSession = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await loadUserProfile(session.user);
+      }
+    } catch (error) {
+      console.error('Error getting initial session:', error);
+    } finally {
+      setLoading(false);
     }
-
-    // If no registered user found, try demo accounts for testing
-    let demoUser = null;
-    if (email.includes("patient")) {
-      demoUser = { id: "demo1", name: "Demo Patient", email, role: "patient" };
-    } else if (email.includes("doctor")) {
-      demoUser = { id: "demo2", name: "Demo Doctor", email, role: "doctor" };
-    } else if (email.includes("nurse")) {
-      demoUser = { id: "demo3", name: "Demo Nurse", email, role: "nurse" };
-    } else if (email.includes("admin")) {
-      demoUser = { id: "demo4", name: "Demo Admin", email, role: "admin" };
-    }
-
-    if (demoUser) {
-      localStorage.setItem("user", JSON.stringify(demoUser));
-      setUser(demoUser);
-      console.log("✅ Demo login successful:", demoUser);
-      return demoUser;
-    }
-
-    // No user found
-    console.log("❌ No user found for login");
-    return null;
   };
 
-  const register = (name, email, password, role = "patient") => {
-    // Registration is now handled in the Register component
-    // This function is kept for compatibility but doesn't auto-login
-    return { success: true, message: "Registration completed" };
+  const loadUserProfile = async (authUser) => {
+    try {
+      const profile = await dbService.getProfile(authUser.id);
+      setUser(authUser);
+      setProfile(profile);
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      setUser(authUser);
+      setProfile(null);
+    }
   };
 
-  const logout = () => {
-    // Mark user as logged out but keep user data for easy re-login
-    localStorage.setItem("userLoggedOut", "true");
-    setUser(null);
+  const login = async (email, password) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      return { user: data.user, error: null };
+    } catch (error) {
+      console.error('Login error:', error);
+      return { user: null, error: error.message };
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const forgotPassword = (email) => {
-    // Mock forgot password functionality
-    console.log(`Password reset initiated for ${email}`);
-    // In a real app, this would send a reset email
-    return true;
+  const register = async (email, password, userData) => {
+    try {
+      setLoading(true);
+      
+      // Sign up the user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Create profile
+        const profileData = {
+          id: authData.user.id,
+          email,
+          full_name: userData.name,
+          role: userData.role || 'patient',
+          phone: userData.phone || null,
+          date_of_birth: userData.dateOfBirth || null,
+          address: userData.address || null,
+        };
+
+        await dbService.createProfile(profileData);
+      }
+
+      return { user: authData.user, error: null };
+    } catch (error) {
+      console.error('Registration error:', error);
+      return { user: null, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      setUser(null);
+      setProfile(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const updateProfile = async (updates) => {
+    try {
+      if (!user) throw new Error('No user logged in');
+      
+      const updatedProfile = await dbService.updateProfile(user.id, updates);
+      setProfile(updatedProfile);
+      return { profile: updatedProfile, error: null };
+    } catch (error) {
+      console.error('Update profile error:', error);
+      return { profile: null, error: error.message };
+    }
+  };
+
+  const forgotPassword = async (email) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      
+      if (error) throw error;
+      return { success: true, error: null };
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const value = {
+    user: profile ? { ...user, ...profile } : user,
+    profile,
+    loading,
+    login,
+    register,
+    logout,
+    updateProfile,
+    forgotPassword,
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        login,
-        register,
-        logout,
-        forgotPassword,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
