@@ -687,6 +687,48 @@ export const dbService = {
     }
   },
 
+  // Get all doctors specifically
+  async getAllDoctors() {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'doctor')
+        .eq('is_active', true)
+        .order('full_name', { ascending: true })
+      
+      if (error) {
+        console.error('Error fetching doctors:', error)
+        throw error
+      }
+      return data || []
+    } catch (error) {
+      console.error('Doctors fetch error:', error)
+      return []
+    }
+  },
+
+  // Get doctor by ID
+  async getDoctorById(doctorId) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', doctorId)
+        .eq('role', 'doctor')
+        .single()
+      
+      if (error) {
+        console.error('Error fetching doctor:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Doctor fetch error:', error)
+      throw error
+    }
+  },
+
   async getAuditLogs() {
     try {
       const { data, error } = await supabase
