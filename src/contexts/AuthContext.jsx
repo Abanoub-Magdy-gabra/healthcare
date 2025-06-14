@@ -323,9 +323,11 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       console.log('Logging out user...');
+      
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('Logout error:', error);
+        console.error('Supabase logout error:', error);
         throw error;
       }
       
@@ -334,12 +336,16 @@ export const AuthProvider = ({ children }) => {
       setProfile(null);
       
       console.log('User logged out successfully');
+      
+      // Return success
+      return { success: true, error: null };
     } catch (error) {
       console.error('Logout error:', error);
       // Even if logout fails, clear the local state
       setUser(null);
       setProfile(null);
-      throw error;
+      // Return error but still clear state
+      return { success: false, error: error.message };
     }
   };
 

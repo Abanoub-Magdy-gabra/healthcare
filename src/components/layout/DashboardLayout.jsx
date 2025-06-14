@@ -40,8 +40,12 @@ const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
 
   const handleLogout = async () => {
     try {
+      console.log('Starting logout process...');
+      
       // Use AuthContext logout to properly clear user state
       await logout();
+      
+      console.log('Logout successful, redirecting to login...');
       
       // Navigate to login page after successful logout
       navigate("/login", { replace: true });
