@@ -79,6 +79,23 @@ export const dbService = {
     }
   },
 
+  async deleteProfile(userId) {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
+      
+      if (error) {
+        console.error('Error deleting profile:', error)
+        throw error
+      }
+    } catch (error) {
+      console.error('Profile deletion error:', error)
+      throw error
+    }
+  },
+
   // Appointments operations
   async getAppointments(userId, role) {
     try {
@@ -148,6 +165,23 @@ export const dbService = {
     }
   },
 
+  async deleteAppointment(id) {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Error deleting appointment:', error)
+        throw error
+      }
+    } catch (error) {
+      console.error('Appointment deletion error:', error)
+      throw error
+    }
+  },
+
   // Medical records operations
   async getMedicalRecords(patientId) {
     try {
@@ -190,6 +224,43 @@ export const dbService = {
     }
   },
 
+  async updateMedicalRecord(id, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('medical_records')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error updating medical record:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Medical record update error:', error)
+      throw error
+    }
+  },
+
+  async deleteMedicalRecord(id) {
+    try {
+      const { error } = await supabase
+        .from('medical_records')
+        .delete()
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Error deleting medical record:', error)
+        throw error
+      }
+    } catch (error) {
+      console.error('Medical record deletion error:', error)
+      throw error
+    }
+  },
+
   // Room operations
   async getRooms() {
     try {
@@ -206,6 +277,62 @@ export const dbService = {
     } catch (error) {
       console.error('Rooms fetch error:', error)
       return []
+    }
+  },
+
+  async createRoom(room) {
+    try {
+      const { data, error } = await supabase
+        .from('rooms')
+        .insert(room)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error creating room:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Room creation error:', error)
+      throw error
+    }
+  },
+
+  async updateRoom(id, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('rooms')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error updating room:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Room update error:', error)
+      throw error
+    }
+  },
+
+  async deleteRoom(id) {
+    try {
+      const { error } = await supabase
+        .from('rooms')
+        .delete()
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Error deleting room:', error)
+        throw error
+      }
+    } catch (error) {
+      console.error('Room deletion error:', error)
+      throw error
     }
   },
 
@@ -251,6 +378,43 @@ export const dbService = {
       return data
     } catch (error) {
       console.error('Room booking creation error:', error)
+      throw error
+    }
+  },
+
+  async updateRoomBooking(id, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('room_bookings')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error updating room booking:', error)
+        throw error
+      }
+      return data
+    } catch (error) {
+      console.error('Room booking update error:', error)
+      throw error
+    }
+  },
+
+  async deleteRoomBooking(id) {
+    try {
+      const { error } = await supabase
+        .from('room_bookings')
+        .delete()
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Error deleting room booking:', error)
+        throw error
+      }
+    } catch (error) {
+      console.error('Room booking deletion error:', error)
       throw error
     }
   },
@@ -321,6 +485,23 @@ export const dbService = {
     }
   },
 
+  async deletePayment(id) {
+    try {
+      const { error } = await supabase
+        .from('payments')
+        .delete()
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Error deleting payment:', error)
+        throw error
+      }
+    } catch (error) {
+      console.error('Payment deletion error:', error)
+      throw error
+    }
+  },
+
   // Messages operations
   async getMessages(userId) {
     try {
@@ -380,6 +561,23 @@ export const dbService = {
       return data
     } catch (error) {
       console.error('Message update error:', error)
+      throw error
+    }
+  },
+
+  async deleteMessage(id) {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Error deleting message:', error)
+        throw error
+      }
+    } catch (error) {
+      console.error('Message deletion error:', error)
       throw error
     }
   },
@@ -449,6 +647,23 @@ export const dbService = {
       return data
     } catch (error) {
       console.error('Nurse request update error:', error)
+      throw error
+    }
+  },
+
+  async deleteNurseRequest(id) {
+    try {
+      const { error } = await supabase
+        .from('nurse_requests')
+        .delete()
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Error deleting nurse request:', error)
+        throw error
+      }
+    } catch (error) {
+      console.error('Nurse request deletion error:', error)
       throw error
     }
   },
