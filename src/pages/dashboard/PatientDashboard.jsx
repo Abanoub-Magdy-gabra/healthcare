@@ -30,7 +30,14 @@ import {
   Download,
   Heart,
   Stethoscope,
-  Pill
+  Pill,
+  Bed,
+  Wifi,
+  Tv,
+  Car,
+  Coffee,
+  Shield,
+  ArrowLeft
 } from 'lucide-react';
 
 const PatientDashboard = () => {
@@ -44,6 +51,16 @@ const PatientDashboard = () => {
   const [nurseRequests, setNurseRequests] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(false);
+
+  // Room booking state
+  const [availableRooms, setAvailableRooms] = useState([]);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [bookingForm, setBookingForm] = useState({
+    check_in_date: '',
+    check_out_date: '',
+    special_requirements: ''
+  });
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   // Message form state
   const [newMessage, setNewMessage] = useState({
@@ -59,6 +76,7 @@ const PatientDashboard = () => {
     if (user?.id) {
       loadPatientData();
       loadDoctors();
+      loadAvailableRooms();
     }
   }, [user]);
 
@@ -109,8 +127,26 @@ const PatientDashboard = () => {
     }
   };
 
+  const loadAvailableRooms = async () => {
+    try {
+      const rooms = await dbService.getRooms();
+      setAvailableRooms(rooms || []);
+    } catch (error) {
+      console.error('Error loading rooms:', error);
+    }
+  };
+
   const handleNavigation = (section) => {
     setActiveCase(section);
+    // Reset room selection when navigating away from room booking
+    if (section !== 'room-booking' && section !== 'book-room') {
+      setSelectedRoom(null);
+      setBookingForm({
+        check_in_date: '',
+        check_out_date: '',
+        special_requirements: ''
+      });
+    }
   };
 
   const formatDate = (dateString) => {
@@ -122,6 +158,79 @@ const PatientDashboard = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const calculateTotalCost = () => {
+    if (!selectedRoom || !bookingForm.check_in_date || !bookingForm.check_out_date) {
+      return 0;
+    }
+
+    const checkIn = new Date(bookingForm.check_in_date);
+    const checkOut = new Date(bookingForm.check_out_date);
+    const days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    
+    return days > 0 ? days * parseFloat(selectedRoom.daily_rate) : 0;
+  };
+
+  const handleRoomBooking = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedRoom || !bookingForm.check_in_date || !bookingForm.check_out_date) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    const checkIn = new Date(bookingForm.check_in_date);
+    const checkOut = new Date(bookingForm.check_out_date);
+    
+    if (checkOut <= checkIn) {
+      alert('Check-out date must be after check-in date');
+      return;
+    }
+
+    if (checkIn < new Date()) {
+      alert('Check-in date cannot be in the past');
+      return;
+    }
+
+    setBookingLoading(true);
+    try {
+      const totalCost = calculateTotalCost();
+      
+      const bookingData = {
+        patient_id: user.id,
+        room_id: selectedRoom.id,
+        check_in_date: bookingForm.check_in_date,
+        check_out_date: bookingForm.check_out_date,
+        total_cost: totalCost,
+        special_requirements: bookingForm.special_requirements || null,
+        status: 'pending'
+      };
+
+      console.log('Creating room booking:', bookingData);
+
+      await dbService.createRoomBooking(bookingData);
+      
+      // Reset form and reload data
+      setSelectedRoom(null);
+      setBookingForm({
+        check_in_date: '',
+        check_out_date: '',
+        special_requirements: ''
+      });
+
+      // Reload room bookings
+      const updatedBookings = await dbService.getRoomBookings(user.id, 'patient');
+      setRoomBookings(updatedBookings || []);
+
+      alert('Room booking request submitted successfully!');
+      setActiveCase('room-booking');
+    } catch (error) {
+      console.error('Error creating room booking:', error);
+      alert('Failed to book room. Please try again.');
+    } finally {
+      setBookingLoading(false);
+    }
   };
 
   const handleSendMessage = async (e) => {
@@ -176,6 +285,19 @@ const PatientDashboard = () => {
     } catch (error) {
       console.error('Error marking message as read:', error);
     }
+  };
+
+  const getEquipmentIcon = (equipment) => {
+    const iconMap = {
+      'WiFi': Wifi,
+      'TV': Tv,
+      'Parking': Car,
+      'Coffee': Coffee,
+      'Private Bathroom': Shield,
+      'Air Conditioning': Activity,
+      'Bed': Bed
+    };
+    return iconMap[equipment] || Activity;
   };
 
   const renderDashboardOverview = () => (
@@ -669,14 +791,19 @@ const PatientDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Room Bookings</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <button 
+          onClick={() => setActiveCase('book-room')}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Book Room
         </button>
       </div>
 
+      {/* Current Bookings */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">My Bookings</h3>
           <div className="space-y-4">
             {roomBookings.map((booking) => (
               <div key={booking.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
@@ -722,6 +849,261 @@ const PatientDashboard = () => {
           </div>
         </div>
       </div>
+    </div>
+  );
+
+  const renderBookRoom = () => (
+    <div className="space-y-6">
+      <div className="flex items-center space-x-4">
+        <button 
+          onClick={() => setActiveCase('room-booking')}
+          className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 flex items-center"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back to Bookings
+        </button>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Book a Room</h2>
+      </div>
+
+      {!selectedRoom ? (
+        // Room Selection
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Available Rooms</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {availableRooms
+                .filter(room => room.status === 'available')
+                .map((room) => (
+                <div key={room.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                     onClick={() => setSelectedRoom(room)}>
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Room {room.room_number}
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {room.room_type} • Floor {room.floor}
+                      </p>
+                    </div>
+                    <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs rounded-full">
+                      Available
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Daily Rate:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        ${room.daily_rate}/day
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Capacity:</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {room.capacity} patient(s)
+                      </span>
+                    </div>
+                  </div>
+
+                  {room.equipment && room.equipment.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Equipment & Amenities:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {room.equipment.map((item, index) => {
+                          const IconComponent = getEquipmentIcon(item);
+                          return (
+                            <div key={index} className="flex items-center text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                              <IconComponent className="h-3 w-3 mr-1" />
+                              {item}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {room.description && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      {room.description}
+                    </p>
+                  )}
+
+                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                    Select This Room
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {availableRooms.filter(room => room.status === 'available').length === 0 && (
+              <div className="text-center py-8">
+                <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No rooms available at the moment</p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        // Booking Form
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Selected Room Details */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Selected Room</h3>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Room {selectedRoom.room_number}
+                  </h4>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {selectedRoom.room_type} • Floor {selectedRoom.floor}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setSelectedRoom(null)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Daily Rate</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                    ${selectedRoom.daily_rate}
+                  </p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Capacity</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                    {selectedRoom.capacity} patient(s)
+                  </p>
+                </div>
+              </div>
+
+              {selectedRoom.equipment && selectedRoom.equipment.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Equipment & Amenities:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedRoom.equipment.map((item, index) => {
+                      const IconComponent = getEquipmentIcon(item);
+                      return (
+                        <div key={index} className="flex items-center text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                          <IconComponent className="h-3 w-3 mr-1" />
+                          {item}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {selectedRoom.description && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description:</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedRoom.description}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Booking Form */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Booking Details</h3>
+            
+            <form onSubmit={handleRoomBooking} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Check-in Date *
+                </label>
+                <input
+                  type="date"
+                  value={bookingForm.check_in_date}
+                  onChange={(e) => setBookingForm({...bookingForm, check_in_date: e.target.value})}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Check-out Date *
+                </label>
+                <input
+                  type="date"
+                  value={bookingForm.check_out_date}
+                  onChange={(e) => setBookingForm({...bookingForm, check_out_date: e.target.value})}
+                  min={bookingForm.check_in_date || new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Special Requirements
+                </label>
+                <textarea
+                  value={bookingForm.special_requirements}
+                  onChange={(e) => setBookingForm({...bookingForm, special_requirements: e.target.value})}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                  placeholder="Any special requirements or requests..."
+                />
+              </div>
+
+              {/* Cost Calculation */}
+              {bookingForm.check_in_date && bookingForm.check_out_date && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Total Cost:
+                    </span>
+                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                      ${calculateTotalCost()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {Math.ceil((new Date(bookingForm.check_out_date) - new Date(bookingForm.check_in_date)) / (1000 * 60 * 60 * 24))} days × ${selectedRoom.daily_rate}/day
+                  </p>
+                </div>
+              )}
+
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="submit"
+                  disabled={bookingLoading}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center justify-center disabled:cursor-not-allowed"
+                >
+                  {bookingLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Booking...
+                    </>
+                  ) : (
+                    <>
+                      <Building className="h-4 w-4 mr-2" />
+                      Book Room
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRoom(null)}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -876,6 +1258,8 @@ const PatientDashboard = () => {
         return renderPayments();
       case 'room-booking':
         return renderRoomBooking();
+      case 'book-room':
+        return renderBookRoom();
       case 'profile':
         return renderProfile();
       case 'settings':
