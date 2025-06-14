@@ -126,7 +126,15 @@ export const AuthProvider = ({ children }) => {
       let profile = await dbService.getProfile(authUser.id);
       
       // If no profile exists, create a default one
-     
+      if (!profile) {
+        console.log('No profile found, creating default profile for user:', authUser.id);
+        profile = await dbService.createProfile({
+          id: authUser.id,
+          email: authUser.email,
+          full_name: authUser.user_metadata?.full_name || authUser.email.split('@')[0],
+          role: authUser.user_metadata?.role || 'patient'
+        });
+      }
       
       setUser(authUser);
       setProfile(profile);

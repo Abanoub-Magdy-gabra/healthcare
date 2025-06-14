@@ -23,11 +23,11 @@ const ForgotPassword = () => {
     
     try {
       setLoading(true);
-      const success = forgotPassword(email);
+      const { success, error: resetError } = await forgotPassword(email);
       if (success) {
         setMessage('Check your email for password reset instructions');
       } else {
-        setError('Failed to send password reset email');
+        setError(resetError || 'Failed to send password reset email');
       }
     } catch (err) {
       setError('Failed to send password reset email');
