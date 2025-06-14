@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { dbService } from '../../lib/supabase.js';
 import DashboardLayout from '../../components/layout/DashboardLayout.jsx';
+import PhotoUpload from '../../components/common/PhotoUpload.jsx';
 import {
   Users,
   Clock,
@@ -32,7 +33,7 @@ import {
 } from 'lucide-react';
 
 const NurseDashboard = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, uploadProfilePhoto, deleteProfilePhoto } = useAuth();
   const [activeCase, setActiveCase] = useState('dashboard');
   const [patients, setPatients] = useState([]);
   const [shifts, setShifts] = useState([]);
@@ -164,6 +165,42 @@ const NurseDashboard = () => {
       setProfileMessage('Failed to update profile. Please try again.');
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  const handlePhotoUpload = async (file) => {
+    try {
+      const { url, profile, error } = await uploadProfilePhoto(file);
+      
+      if (error) {
+        throw new Error(error);
+      }
+      
+      setProfileMessage('Profile photo updated successfully!');
+      setTimeout(() => {
+        setProfileMessage('');
+      }, 3000);
+    } catch (error) {
+      console.error('Photo upload error:', error);
+      throw error; // Re-throw to be handled by PhotoUpload component
+    }
+  };
+
+  const handlePhotoDelete = async () => {
+    try {
+      const { profile, error } = await deleteProfilePhoto();
+      
+      if (error) {
+        throw new Error(error);
+      }
+      
+      setProfileMessage('Profile photo deleted successfully!');
+      setTimeout(() => {
+        setProfileMessage('');
+      }, 3000);
+    } catch (error) {
+      console.error('Photo delete error:', error);
+      throw error; // Re-throw to be handled by PhotoUpload component
     }
   };
 
@@ -650,16 +687,12 @@ const NurseDashboard = () => {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         {/* Profile Header */}
         <div className="flex items-center space-x-6 mb-8">
-          <div className="relative">
-            <div className="w-24 h-24 bg-gradient-to-r from-green-500 to-teal-600 rounded-full flex items-center justify-center shadow-lg">
-              <span className="text-3xl font-bold text-white">
-                {user?.full_name?.charAt(0)?.toUpperCase() || 'N'}
-              </span>
-            </div>
-            <button className="absolute bottom-0 right-0 bg-white dark:bg-gray-700 rounded-full p-2 shadow-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
-              <Camera className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            </button>
-          </div>
+          <PhotoUpload
+            currentPhotoUrl={user?.avatar_url}
+            onUpload={handlePhotoUpload}
+            onDelete={handlePhotoDelete}
+            size="large"
+          />
           <div>
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{user?.full_name || 'Nurse'}</h3>
             <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
