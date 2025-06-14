@@ -18,13 +18,14 @@ export const dbService = {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single()
       
       if (error) {
         console.error('Error fetching profile:', error)
         throw error
       }
-      return data
+      
+      // Return the first profile or null if none found
+      return data && data.length > 0 ? data[0] : null
     } catch (error) {
       console.error('Profile fetch error:', error)
       throw error

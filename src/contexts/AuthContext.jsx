@@ -33,8 +33,8 @@ export const AuthProvider = ({ children }) => {
           } else {
             setUser(null);
             setProfile(null);
+            setLoading(false);
           }
-          setLoading(false);
         }
 
         // Set up auth state listener
@@ -79,7 +79,21 @@ export const AuthProvider = ({ children }) => {
 
   const loadUserProfile = async (authUser) => {
     try {
-      const profile = await dbService.getProfile(authUser.id);
+      let profile = await dbService.getProfile(authUser.id);
+      
+      // If no profile exists, create a default one
+      if (!profile) {
+        console.log('No profile found, creating default profile for user:', authUser.email);
+        const defaultProfile = {
+          id: authUser.id,
+          email: authUser.email,
+          full_name: authUser.user_metadata?.full_name || authUser.email.split('@')[0],
+          role: 'patient', // Default role
+        };
+        
+        profile = await dbService.createProfile(defaultProfile);
+      }
+      
       setUser(authUser);
       setProfile(profile);
     } catch (error) {
@@ -87,6 +101,8 @@ export const AuthProvider = ({ children }) => {
       // Set user even if profile fails to load
       setUser(authUser);
       setProfile(null);
+    } finally {
+      setLoading(false);
     }
   };
 
