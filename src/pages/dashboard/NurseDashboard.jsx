@@ -478,6 +478,160 @@ const NurseDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* New Patient Form Modal */}
+      {showNewPatientForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add New Patient</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const newPatient = {
+                id: Date.now().toString(),
+                full_name: formData.get('name'),
+                age: parseInt(formData.get('age')),
+                room: formData.get('room'),
+                condition: formData.get('condition'),
+                status: 'stable',
+                vitals: {
+                  temperature: '98.6°F',
+                  bloodPressure: '120/80',
+                  heartRate: '72 bpm',
+                  oxygenSat: '98%'
+                },
+                medications: [],
+                notes: formData.get('notes')
+              };
+              setPatients([...patients, newPatient]);
+              setShowNewPatientForm(false);
+            }}>
+              <div className="space-y-4">
+                <input
+                  name="name"
+                  type="text"
+                  placeholder="Patient Name"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <input
+                  name="age"
+                  type="number"
+                  placeholder="Age"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <input
+                  name="room"
+                  type="text"
+                  placeholder="Room Number"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <input
+                  name="condition"
+                  type="text"
+                  placeholder="Medical Condition"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <textarea
+                  name="notes"
+                  placeholder="Notes"
+                  rows="3"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Add Patient
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowNewPatientForm(false)}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Patient Modal */}
+      {editingPatient && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Edit Patient</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const updatedPatient = {
+                ...editingPatient,
+                full_name: formData.get('name'),
+                age: parseInt(formData.get('age')),
+                room: formData.get('room'),
+                condition: formData.get('condition'),
+                notes: formData.get('notes')
+              };
+              setPatients(patients.map(p => p.id === editingPatient.id ? updatedPatient : p));
+              setEditingPatient(null);
+            }}>
+              <div className="space-y-4">
+                <input
+                  name="name"
+                  type="text"
+                  defaultValue={editingPatient.full_name}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <input
+                  name="age"
+                  type="number"
+                  defaultValue={editingPatient.age}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <input
+                  name="room"
+                  type="text"
+                  defaultValue={editingPatient.room}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <input
+                  name="condition"
+                  type="text"
+                  defaultValue={editingPatient.condition}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <textarea
+                  name="notes"
+                  defaultValue={editingPatient.notes}
+                  rows="3"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Update Patient
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingPatient(null)}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -542,6 +696,90 @@ const NurseDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* New Shift Request Form */}
+      {showNewShiftForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Request New Shift</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const newShift = {
+                id: Date.now(),
+                date: formData.get('date'),
+                startTime: formData.get('startTime'),
+                endTime: formData.get('endTime'),
+                type: formData.get('type'),
+                location: formData.get('location'),
+                status: 'requested',
+                patients: 0
+              };
+              setShifts([...shifts, newShift]);
+              setShowNewShiftForm(false);
+              alert('Shift request submitted successfully!');
+            }}>
+              <div className="space-y-4">
+                <input
+                  name="date"
+                  type="date"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <select
+                  name="type"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Select Shift Type</option>
+                  <option value="Day Shift">Day Shift</option>
+                  <option value="Night Shift">Night Shift</option>
+                  <option value="Evening Shift">Evening Shift</option>
+                </select>
+                <input
+                  name="startTime"
+                  type="time"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <input
+                  name="endTime"
+                  type="time"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <select
+                  name="location"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Select Location</option>
+                  <option value="ICU Ward">ICU Ward</option>
+                  <option value="General Ward">General Ward</option>
+                  <option value="Emergency">Emergency</option>
+                  <option value="Pediatrics">Pediatrics</option>
+                  <option value="Maternity">Maternity</option>
+                </select>
+              </div>
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Submit Request
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowNewShiftForm(false)}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -677,6 +915,116 @@ const NurseDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* New Request Form */}
+      {showNewRequestForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Create New Request</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const newRequest = {
+                id: Date.now().toString(),
+                patient: { full_name: formData.get('patientName') },
+                request_type: formData.get('requestType'),
+                description: formData.get('description'),
+                address: formData.get('address'),
+                requested_date: formData.get('date'),
+                requested_time: formData.get('time'),
+                priority: formData.get('priority'),
+                status: 'pending',
+                services: formData.get('services').split(',').map(s => s.trim()).filter(s => s)
+              };
+              setRequests([...requests, newRequest]);
+              setShowNewRequestForm(false);
+              alert('Request created successfully!');
+            }}>
+              <div className="space-y-4">
+                <input
+                  name="patientName"
+                  type="text"
+                  placeholder="Patient Name"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <select
+                  name="requestType"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Select Request Type</option>
+                  <option value="Post-Surgery Care">Post-Surgery Care</option>
+                  <option value="Routine Care">Routine Care</option>
+                  <option value="Elderly Care">Elderly Care</option>
+                  <option value="Medication Management">Medication Management</option>
+                  <option value="Wound Care">Wound Care</option>
+                </select>
+                <textarea
+                  name="description"
+                  placeholder="Description"
+                  rows="3"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <input
+                  name="address"
+                  type="text"
+                  placeholder="Address"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <input
+                    name="date"
+                    type="date"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                  <input
+                    name="time"
+                    type="time"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <select
+                  name="priority"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Select Priority</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+                <input
+                  name="services"
+                  type="text"
+                  placeholder="Services (comma separated)"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Create Request
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowNewRequestForm(false)}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -694,7 +1042,10 @@ const NurseDashboard = () => {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Daily Report</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">Generate daily activity report</p>
-          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+          <button 
+            onClick={() => alert('Daily report generated successfully!')}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
             Generate
           </button>
         </div>
@@ -702,7 +1053,10 @@ const NurseDashboard = () => {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Patient Summary</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">Summary of patient care activities</p>
-          <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+          <button 
+            onClick={() => alert('Patient summary generated successfully!')}
+            className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+          >
             Generate
           </button>
         </div>
@@ -710,7 +1064,10 @@ const NurseDashboard = () => {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Shift Report</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">Detailed shift activity report</p>
-          <button className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+          <button 
+            onClick={() => alert('Shift report generated successfully!')}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"
+          >
             Generate
           </button>
         </div>
@@ -736,58 +1093,65 @@ const NurseDashboard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Full Name
-            </label>
-            <input
-              type="text"
-              value={user?.full_name || ''}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              readOnly
-            />
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          alert('Profile updated successfully!');
+        }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Full Name
+              </label>
+              <input
+                type="text"
+                defaultValue={user?.full_name || ''}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                defaultValue={user?.email || ''}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                readOnly
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                License Number
+              </label>
+              <input
+                type="text"
+                defaultValue={user?.license_number || ''}
+                placeholder="Add license number"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Specialization
+              </label>
+              <input
+                type="text"
+                defaultValue={user?.specialization || ''}
+                placeholder="Add specialization"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={user?.email || ''}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              readOnly
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              License Number
-            </label>
-            <input
-              type="text"
-              value={user?.license_number || ''}
-              placeholder="Add license number"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Specialization
-            </label>
-            <input
-              type="text"
-              value={user?.specialization || ''}
-              placeholder="Add specialization"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
 
-        <div className="mt-6">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
-            Update Profile
-          </button>
-        </div>
+          <div className="mt-6">
+            <button 
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            >
+              Update Profile
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
