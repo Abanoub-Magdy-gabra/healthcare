@@ -17,27 +17,20 @@ import {
   Phone,
   Mail,
   MapPin,
-  Clock,
   CheckCircle,
   AlertCircle,
   XCircle,
-  Search,
-  Send,
-  MessageSquare,
-  Paperclip,
-  Star,
-  Filter,
-  Download,
+  Clock,
   Heart,
   Stethoscope,
-  Pill,
-  Bed,
+  ArrowLeft,
   Wifi,
   Tv,
   Car,
   Coffee,
   Shield,
-  ArrowLeft
+  Search,
+  Filter
 } from 'lucide-react';
 
 const PatientDashboard = () => {
@@ -48,35 +41,23 @@ const PatientDashboard = () => {
   const [messages, setMessages] = useState([]);
   const [payments, setPayments] = useState([]);
   const [roomBookings, setRoomBookings] = useState([]);
-  const [nurseRequests, setNurseRequests] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(false);
-
-  // Room booking state
-  const [availableRooms, setAvailableRooms] = useState([]);
+  
+  // Room booking states
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [bookingStep, setBookingStep] = useState('browse'); // 'browse', 'book'
   const [bookingForm, setBookingForm] = useState({
-    check_in_date: '',
-    check_out_date: '',
-    special_requirements: ''
+    checkInDate: '',
+    checkOutDate: '',
+    specialRequirements: ''
   });
   const [bookingLoading, setBookingLoading] = useState(false);
-
-  // Message form state
-  const [newMessage, setNewMessage] = useState({
-    recipient_id: '',
-    subject: '',
-    content: '',
-    priority: 'medium'
-  });
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [doctors, setDoctors] = useState([]);
 
   useEffect(() => {
     if (user?.id) {
       loadPatientData();
-      loadDoctors();
-      loadAvailableRooms();
     }
   }, [user]);
 
@@ -89,7 +70,7 @@ const PatientDashboard = () => {
         messagesData,
         paymentsData,
         roomBookingsData,
-        nurseRequestsData,
+        roomsData,
         statsData
       ] = await Promise.all([
         dbService.getAppointments(user.id, 'patient'),
@@ -97,7 +78,7 @@ const PatientDashboard = () => {
         dbService.getMessages(user.id),
         dbService.getPayments(user.id, 'patient'),
         dbService.getRoomBookings(user.id, 'patient'),
-        dbService.getNurseRequests(user.id, 'patient'),
+        dbService.getRooms(),
         dbService.getDashboardStats(user.id, 'patient')
       ]);
 
@@ -106,7 +87,7 @@ const PatientDashboard = () => {
       setMessages(messagesData || []);
       setPayments(paymentsData || []);
       setRoomBookings(roomBookingsData || []);
-      setNurseRequests(nurseRequestsData || []);
+      setRooms(roomsData || []);
       setStats(statsData || {});
 
     } catch (error) {
@@ -116,35 +97,16 @@ const PatientDashboard = () => {
     }
   };
 
-  const loadDoctors = async () => {
-    try {
-      // Get all users with doctor role
-      const allUsers = await dbService.getAllUsers();
-      const doctorsList = allUsers.filter(user => user.role === 'doctor');
-      setDoctors(doctorsList);
-    } catch (error) {
-      console.error('Error loading doctors:', error);
-    }
-  };
-
-  const loadAvailableRooms = async () => {
-    try {
-      const rooms = await dbService.getRooms();
-      setAvailableRooms(rooms || []);
-    } catch (error) {
-      console.error('Error loading rooms:', error);
-    }
-  };
-
   const handleNavigation = (section) => {
     setActiveCase(section);
-    // Reset room selection when navigating away from room booking
-    if (section !== 'room-booking' && section !== 'book-room') {
+    // Reset room booking state when navigating away
+    if (section !== 'room-booking') {
+      setBookingStep('browse');
       setSelectedRoom(null);
       setBookingForm({
-        check_in_date: '',
-        check_out_date: '',
-        special_requirements: ''
+        checkInDate: '',
+        checkOutDate: '',
+        specialRequirements: ''
       });
     }
   };
@@ -161,35 +123,36 @@ const PatientDashboard = () => {
   };
 
   const calculateTotalCost = () => {
-    if (!selectedRoom || !bookingForm.check_in_date || !bookingForm.check_out_date) {
+    if (!selectedRoom || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
       return 0;
     }
 
-    const checkIn = new Date(bookingForm.check_in_date);
-    const checkOut = new Date(bookingForm.check_out_date);
-    const days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    const checkIn = new Date(bookingForm.checkInDate);
+    const checkOut = new Date(bookingForm.checkOutDate);
+    const diffTime = Math.abs(checkOut - checkIn);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    return days > 0 ? days * parseFloat(selectedRoom.daily_rate) : 0;
+    return diffDays * parseFloat(selectedRoom.daily_rate);
   };
 
-  const handleRoomBooking = async (e) => {
-    e.preventDefault();
-    
-    if (!selectedRoom || !bookingForm.check_in_date || !bookingForm.check_out_date) {
+  const handleRoomBooking = async () => {
+    if (!selectedRoom || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
       alert('Please fill in all required fields');
       return;
     }
 
-    const checkIn = new Date(bookingForm.check_in_date);
-    const checkOut = new Date(bookingForm.check_out_date);
-    
-    if (checkOut <= checkIn) {
-      alert('Check-out date must be after check-in date');
+    const checkIn = new Date(bookingForm.checkInDate);
+    const checkOut = new Date(bookingForm.checkOutDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (checkIn < today) {
+      alert('Check-in date cannot be in the past');
       return;
     }
 
-    if (checkIn < new Date()) {
-      alert('Check-in date cannot be in the past');
+    if (checkOut <= checkIn) {
+      alert('Check-out date must be after check-in date');
       return;
     }
 
@@ -200,104 +163,39 @@ const PatientDashboard = () => {
       const bookingData = {
         patient_id: user.id,
         room_id: selectedRoom.id,
-        check_in_date: bookingForm.check_in_date,
-        check_out_date: bookingForm.check_out_date,
+        check_in_date: bookingForm.checkInDate,
+        check_out_date: bookingForm.checkOutDate,
         total_cost: totalCost,
-        special_requirements: bookingForm.special_requirements || null,
+        special_requirements: bookingForm.specialRequirements || null,
         status: 'pending'
       };
 
-      console.log('Creating room booking:', bookingData);
+      console.log('Booking room with data:', bookingData);
 
-      await dbService.createRoomBooking(bookingData);
+      const newBooking = await dbService.createRoomBooking(bookingData);
       
-      // Reset form and reload data
-      setSelectedRoom(null);
-      setBookingForm({
-        check_in_date: '',
-        check_out_date: '',
-        special_requirements: ''
-      });
-
-      // Reload room bookings
-      const updatedBookings = await dbService.getRoomBookings(user.id, 'patient');
-      setRoomBookings(updatedBookings || []);
-
-      alert('Room booking request submitted successfully!');
-      setActiveCase('room-booking');
+      if (newBooking) {
+        alert('Room booked successfully! Your booking is pending confirmation.');
+        
+        // Reset form and go back to browse
+        setBookingForm({
+          checkInDate: '',
+          checkOutDate: '',
+          specialRequirements: ''
+        });
+        setSelectedRoom(null);
+        setBookingStep('browse');
+        
+        // Reload room bookings
+        const updatedBookings = await dbService.getRoomBookings(user.id, 'patient');
+        setRoomBookings(updatedBookings || []);
+      }
     } catch (error) {
-      console.error('Error creating room booking:', error);
+      console.error('Error booking room:', error);
       alert('Failed to book room. Please try again.');
     } finally {
       setBookingLoading(false);
     }
-  };
-
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    
-    if (!newMessage.recipient_id || !newMessage.subject || !newMessage.content) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    setSendingMessage(true);
-    try {
-      const messageData = {
-        sender_id: user.id,
-        recipient_id: newMessage.recipient_id,
-        subject: newMessage.subject,
-        content: newMessage.content,
-        priority: newMessage.priority
-      };
-
-      console.log('Sending message:', messageData);
-
-      await dbService.createMessage(messageData);
-      
-      // Reset form
-      setNewMessage({
-        recipient_id: '',
-        subject: '',
-        content: '',
-        priority: 'medium'
-      });
-
-      // Reload messages
-      const updatedMessages = await dbService.getMessages(user.id);
-      setMessages(updatedMessages || []);
-
-      alert('Message sent successfully!');
-    } catch (error) {
-      console.error('Error sending message:', error);
-      alert('Failed to send message. Please try again.');
-    } finally {
-      setSendingMessage(false);
-    }
-  };
-
-  const markMessageAsRead = async (messageId) => {
-    try {
-      await dbService.markMessageAsRead(messageId);
-      // Reload messages to update read status
-      const updatedMessages = await dbService.getMessages(user.id);
-      setMessages(updatedMessages || []);
-    } catch (error) {
-      console.error('Error marking message as read:', error);
-    }
-  };
-
-  const getEquipmentIcon = (equipment) => {
-    const iconMap = {
-      'WiFi': Wifi,
-      'TV': Tv,
-      'Parking': Car,
-      'Coffee': Coffee,
-      'Private Bathroom': Shield,
-      'Air Conditioning': Activity,
-      'Bed': Bed
-    };
-    return iconMap[equipment] || Activity;
   };
 
   const renderDashboardOverview = () => (
@@ -336,7 +234,7 @@ const PatientDashboard = () => {
               <p className="text-sm text-gray-600 dark:text-gray-400">Unread Messages</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.unreadMessages || 0}</p>
             </div>
-            <MessageSquare className="h-8 w-8 text-orange-500" />
+            <Mail className="h-8 w-8 text-orange-500" />
           </div>
         </div>
 
@@ -390,19 +288,17 @@ const PatientDashboard = () => {
             {messages.slice(0, 3).map((message) => (
               <div key={message.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">{message.subject}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    From: {message.sender?.full_name}
-                  </p>
+                  <p className="font-medium text-gray-900 dark:text-white">{message.sender?.full_name}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{message.subject}</p>
                 </div>
-                {!message.is_read && message.recipient_id === user.id && (
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                {!message.is_read && (
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                 )}
               </div>
             ))}
             {messages.length === 0 && (
               <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-                No messages yet
+                No messages
               </p>
             )}
           </div>
@@ -411,194 +307,347 @@ const PatientDashboard = () => {
     </div>
   );
 
-  const renderMessages = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Messages</h2>
-        <button 
-          onClick={() => setActiveCase('compose-message')}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Compose Message
-        </button>
-      </div>
+  const renderRoomBooking = () => {
+    if (bookingStep === 'book' && selectedRoom) {
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => {
+                setBookingStep('browse');
+                setSelectedRoom(null);
+                setBookingForm({
+                  checkInDate: '',
+                  checkOutDate: '',
+                  specialRequirements: ''
+                });
+              }}
+              className="flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Rooms
+            </button>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Book Room {selectedRoom.room_number}</h2>
+          </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div 
-                key={message.id} 
-                className={`border border-gray-200 dark:border-gray-700 rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                  !message.is_read && message.recipient_id === user.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                }`}
-                onClick={() => {
-                  if (!message.is_read && message.recipient_id === user.id) {
-                    markMessageAsRead(message.id);
-                  }
-                }}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {message.subject}
-                      </h3>
-                      {!message.is_read && message.recipient_id === user.id && (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs rounded-full">
-                          New
-                        </span>
-                      )}
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        message.priority === 'high' 
-                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                          : message.priority === 'medium'
-                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                          : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      }`}>
-                        {message.priority}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      <span>
-                        {message.sender_id === user.id ? 'To' : 'From'}: {
-                          message.sender_id === user.id 
-                            ? message.recipient?.full_name 
-                            : message.sender?.full_name
-                        }
-                      </span>
-                      <span>{formatDate(message.created_at)}</span>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-400 line-clamp-2">
-                      {message.content}
-                    </p>
-                  </div>
-                  <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                    <Eye className="h-4 w-4" />
-                  </button>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Room Details */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Room Details</h3>
+              
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Room Number:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{selectedRoom.room_number}</span>
                 </div>
+                
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Room Type:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{selectedRoom.room_type}</span>
+                </div>
+                
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Floor:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{selectedRoom.floor}</span>
+                </div>
+                
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Capacity:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{selectedRoom.capacity} patient(s)</span>
+                </div>
+                
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Daily Rate:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">${selectedRoom.daily_rate}</span>
+                </div>
+
+                {selectedRoom.equipment && selectedRoom.equipment.length > 0 && (
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-400">Equipment:</span>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {selectedRoom.equipment.map((item, index) => (
+                        <span key={index} className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-sm">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
-            {messages.length === 0 && (
-              <div className="text-center py-8">
-                <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No messages yet</p>
+            </div>
+
+            {/* Booking Form */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Booking Details</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Check-in Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={bookingForm.checkInDate}
+                    onChange={(e) => setBookingForm({...bookingForm, checkInDate: e.target.value})}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Check-out Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={bookingForm.checkOutDate}
+                    onChange={(e) => setBookingForm({...bookingForm, checkOutDate: e.target.value})}
+                    min={bookingForm.checkInDate || new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Special Requirements
+                  </label>
+                  <textarea
+                    value={bookingForm.specialRequirements}
+                    onChange={(e) => setBookingForm({...bookingForm, specialRequirements: e.target.value})}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                    placeholder="Any special requirements or requests..."
+                  />
+                </div>
+
+                {bookingForm.checkInDate && bookingForm.checkOutDate && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">Booking Summary</h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Duration:</span>
+                        <span className="text-gray-900 dark:text-white">
+                          {Math.ceil((new Date(bookingForm.checkOutDate) - new Date(bookingForm.checkInDate)) / (1000 * 60 * 60 * 24))} days
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Daily Rate:</span>
+                        <span className="text-gray-900 dark:text-white">${selectedRoom.daily_rate}</span>
+                      </div>
+                      <div className="flex justify-between font-medium text-lg border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
+                        <span className="text-gray-900 dark:text-white">Total Cost:</span>
+                        <span className="text-blue-600 dark:text-blue-400">${calculateTotalCost()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleRoomBooking}
+                  disabled={bookingLoading || !bookingForm.checkInDate || !bookingForm.checkOutDate}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center"
+                >
+                  {bookingLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Booking Room...
+                    </>
+                  ) : (
+                    'Book Room'
+                  )}
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
+      );
+    }
 
-  const renderComposeMessage = () => (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <button 
-          onClick={() => setActiveCase('messages')}
-          className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-        >
-          ← Back to Messages
-        </button>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Compose Message</h2>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <form onSubmit={handleSendMessage} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Send to *
-            </label>
-            <select
-              value={newMessage.recipient_id}
-              onChange={(e) => setNewMessage({...newMessage, recipient_id: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              required
-            >
-              <option value="">Select a doctor...</option>
-              {doctors.map((doctor) => (
-                <option key={doctor.id} value={doctor.id}>
-                  Dr. {doctor.full_name} {doctor.specialization ? `- ${doctor.specialization}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Subject *
-            </label>
-            <input
-              type="text"
-              value={newMessage.subject}
-              onChange={(e) => setNewMessage({...newMessage, subject: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Enter message subject"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Priority
-            </label>
-            <select
-              value={newMessage.priority}
-              onChange={(e) => setNewMessage({...newMessage, priority: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Message *
-            </label>
-            <textarea
-              value={newMessage.content}
-              onChange={(e) => setNewMessage({...newMessage, content: e.target.value})}
-              rows={6}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-              placeholder="Type your message here..."
-              required
-            />
-          </div>
-
-          <div className="flex space-x-4">
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Room Booking</h2>
+          <div className="flex space-x-3">
             <button
-              type="submit"
-              disabled={sendingMessage}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg flex items-center disabled:cursor-not-allowed"
+              onClick={() => setBookingStep('browse')}
+              className={`px-4 py-2 rounded-lg ${
+                bookingStep === 'browse'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
             >
-              {sendingMessage ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Message
-                </>
+              Available Rooms
+            </button>
+            <button
+              onClick={() => setBookingStep('my-bookings')}
+              className={`px-4 py-2 rounded-lg ${
+                bookingStep === 'my-bookings'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+            >
+              My Bookings ({roomBookings.length})
+            </button>
+          </div>
+        </div>
+
+        {bookingStep === 'browse' && (
+          <div>
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Available Rooms</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {rooms
+                  .filter(room => room.status === 'available')
+                  .map((room) => (
+                  <div key={room.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          Room {room.room_number}
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {room.room_type} • Floor {room.floor}
+                        </p>
+                      </div>
+                      <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-xs font-medium">
+                        Available
+                      </span>
+                    </div>
+
+                    <div className="space-y-3 mb-4">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Daily Rate:</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">${room.daily_rate}</span>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Capacity:</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">{room.capacity} patient(s)</span>
+                      </div>
+
+                      {room.equipment && room.equipment.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amenities:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {room.equipment.slice(0, 4).map((item, index) => {
+                              const getIcon = (equipment) => {
+                                switch(equipment.toLowerCase()) {
+                                  case 'wifi': return <Wifi className="h-3 w-3" />;
+                                  case 'tv': return <Tv className="h-3 w-3" />;
+                                  case 'parking': return <Car className="h-3 w-3" />;
+                                  case 'coffee': return <Coffee className="h-3 w-3" />;
+                                  default: return <Shield className="h-3 w-3" />;
+                                }
+                              };
+                              
+                              return (
+                                <div key={index} className="flex items-center text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                                  {getIcon(item)}
+                                  <span className="ml-1">{item}</span>
+                                </div>
+                              );
+                            })}
+                            {room.equipment.length > 4 && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                +{room.equipment.length - 4} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setSelectedRoom(room);
+                        setBookingStep('book');
+                      }}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                    >
+                      Select Room
+                    </button>
+                  </div>
+                ))}
+              </div>
+              
+              {rooms.filter(room => room.status === 'available').length === 0 && (
+                <div className="text-center py-8">
+                  <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">No rooms available at the moment</p>
+                </div>
               )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveCase('messages')}
-              className="bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 px-6 py-2 rounded-lg"
-            >
-              Cancel
-            </button>
+            </div>
           </div>
-        </form>
+        )}
+
+        {bookingStep === 'my-bookings' && (
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">My Room Bookings</h3>
+            <div className="space-y-4">
+              {roomBookings.map((booking) => (
+                <div key={booking.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          Room {booking.room?.room_number}
+                        </h4>
+                        <span className="text-sm text-blue-600 dark:text-blue-400">
+                          {booking.room?.room_type}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 dark:text-gray-400">
+                        <div>
+                          <span className="font-medium">Check-in:</span> {formatDate(booking.check_in_date)}
+                        </div>
+                        <div>
+                          <span className="font-medium">Check-out:</span> {formatDate(booking.check_out_date)}
+                        </div>
+                        <div>
+                          <span className="font-medium">Total Cost:</span> ${booking.total_cost}
+                        </div>
+                      </div>
+                      {booking.special_requirements && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                          <span className="font-medium">Special Requirements:</span> {booking.special_requirements}
+                        </p>
+                      )}
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      booking.status === 'confirmed' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : booking.status === 'pending'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        : booking.status === 'in_progress'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                    }`}>
+                      {booking.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              
+              {roomBookings.length === 0 && (
+                <div className="text-center py-8">
+                  <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">No room bookings yet</p>
+                  <button
+                    onClick={() => setBookingStep('browse')}
+                    className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+                  >
+                    Book Your First Room
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderAppointments = () => (
     <div className="space-y-6">
@@ -634,7 +683,6 @@ const PatientDashboard = () => {
                         <Clock className="h-4 w-4 mr-1" />
                         {formatTime(appointment.appointment_time)}
                       </div>
-                      <span>Duration: {appointment.duration_minutes} min</span>
                     </div>
                     {appointment.notes && (
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
@@ -642,20 +690,15 @@ const PatientDashboard = () => {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      appointment.status === 'confirmed' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : appointment.status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                    }`}>
-                      {appointment.status}
-                    </span>
-                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    appointment.status === 'confirmed' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : appointment.status === 'pending'
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                  }`}>
+                    {appointment.status}
+                  </span>
                 </div>
               </div>
             ))}
@@ -673,8 +716,14 @@ const PatientDashboard = () => {
 
   const renderMedicalRecords = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Medical Records</h2>
-      
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Medical Records</h2>
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+          <Plus className="h-4 w-4 mr-2" />
+          Request Record
+        </button>
+      </div>
+
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-6">
           <div className="space-y-4">
@@ -690,31 +739,29 @@ const PatientDashboard = () => {
                         {record.record_type}
                       </span>
                       {record.is_critical && (
-                        <span className="px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs rounded-full">
+                        <span className="px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-full text-xs font-medium">
                           Critical
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      <span>Dr. {record.doctor?.full_name}</span>
-                      <span>{formatDate(record.record_date)}</span>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center">
+                        <Stethoscope className="h-4 w-4 mr-1" />
+                        Dr. {record.doctor?.full_name}
+                      </div>
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {formatDate(record.record_date)}
+                      </div>
                     </div>
                     {record.description && (
-                      <p className="text-gray-600 dark:text-gray-400 mb-2">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
                         {record.description}
                       </p>
                     )}
-                    {record.test_results && (
-                      <div className="mt-2">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Test Results:</p>
-                        <pre className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-2 rounded mt-1">
-                          {JSON.stringify(record.test_results, null, 2)}
-                        </pre>
-                      </div>
-                    )}
                   </div>
                   <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                    <Download className="h-4 w-4" />
+                    <Eye className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -731,10 +778,63 @@ const PatientDashboard = () => {
     </div>
   );
 
+  const renderMessages = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Messages</h2>
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+          <Plus className="h-4 w-4 mr-2" />
+          New Message
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-6">
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <div key={message.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {message.subject}
+                      </h3>
+                      {!message.is_read && (
+                        <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                      <span>From: {message.sender?.full_name}</span>
+                      <span>{formatDate(message.created_at)}</span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-2">
+                      {message.content}
+                    </p>
+                  </div>
+                  <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                    <Eye className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {messages.length === 0 && (
+              <div className="text-center py-8">
+                <Mail className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No messages</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderPayments = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Payments & Billing</h2>
-      
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Payments & Billing</h2>
+      </div>
+
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-6">
           <div className="space-y-4">
@@ -756,22 +856,15 @@ const PatientDashboard = () => {
                       {payment.payment_method && <span>Method: {payment.payment_method}</span>}
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      payment.status === 'paid' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : payment.status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                    }`}>
-                      {payment.status}
-                    </span>
-                    {payment.status === 'pending' && (
-                      <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
-                        Pay Now
-                      </button>
-                    )}
-                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    payment.status === 'paid' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : payment.status === 'pending'
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                  }`}>
+                    {payment.status}
+                  </span>
                 </div>
               </div>
             ))}
@@ -784,326 +877,6 @@ const PatientDashboard = () => {
           </div>
         </div>
       </div>
-    </div>
-  );
-
-  const renderRoomBooking = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Room Bookings</h2>
-        <button 
-          onClick={() => setActiveCase('book-room')}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Book Room
-        </button>
-      </div>
-
-      {/* Current Bookings */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">My Bookings</h3>
-          <div className="space-y-4">
-            {roomBookings.map((booking) => (
-              <div key={booking.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Room {booking.room?.room_number}
-                      </h3>
-                      <span className="text-sm text-blue-600 dark:text-blue-400">
-                        {booking.room?.room_type}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                      <span>Check-in: {formatDate(booking.check_in_date)}</span>
-                      <span>Check-out: {formatDate(booking.check_out_date)}</span>
-                      <span>Total: ${booking.total_cost}</span>
-                    </div>
-                    {booking.special_requirements && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                        Special Requirements: {booking.special_requirements}
-                      </p>
-                    )}
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    booking.status === 'confirmed' 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : booking.status === 'pending'
-                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                  }`}>
-                    {booking.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-            {roomBookings.length === 0 && (
-              <div className="text-center py-8">
-                <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No room bookings</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderBookRoom = () => (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <button 
-          onClick={() => setActiveCase('room-booking')}
-          className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 flex items-center"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back to Bookings
-        </button>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Book a Room</h2>
-      </div>
-
-      {!selectedRoom ? (
-        // Room Selection
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Available Rooms</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {availableRooms
-                .filter(room => room.status === 'available')
-                .map((room) => (
-                <div key={room.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                     onClick={() => setSelectedRoom(room)}>
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Room {room.room_number}
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {room.room_type} • Floor {room.floor}
-                      </p>
-                    </div>
-                    <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs rounded-full">
-                      Available
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Daily Rate:</span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        ${room.daily_rate}/day
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Capacity:</span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {room.capacity} patient(s)
-                      </span>
-                    </div>
-                  </div>
-
-                  {room.equipment && room.equipment.length > 0 && (
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Equipment & Amenities:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {room.equipment.map((item, index) => {
-                          const IconComponent = getEquipmentIcon(item);
-                          return (
-                            <div key={index} className="flex items-center text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                              <IconComponent className="h-3 w-3 mr-1" />
-                              {item}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {room.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      {room.description}
-                    </p>
-                  )}
-
-                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                    Select This Room
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {availableRooms.filter(room => room.status === 'available').length === 0 && (
-              <div className="text-center py-8">
-                <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No rooms available at the moment</p>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        // Booking Form
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Selected Room Details */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Selected Room</h3>
-            
-            <div className="space-y-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-white">
-                    Room {selectedRoom.room_number}
-                  </h4>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    {selectedRoom.room_type} • Floor {selectedRoom.floor}
-                  </p>
-                </div>
-                <button 
-                  onClick={() => setSelectedRoom(null)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  <XCircle className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Daily Rate</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    ${selectedRoom.daily_rate}
-                  </p>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Capacity</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    {selectedRoom.capacity} patient(s)
-                  </p>
-                </div>
-              </div>
-
-              {selectedRoom.equipment && selectedRoom.equipment.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Equipment & Amenities:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedRoom.equipment.map((item, index) => {
-                      const IconComponent = getEquipmentIcon(item);
-                      return (
-                        <div key={index} className="flex items-center text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                          <IconComponent className="h-3 w-3 mr-1" />
-                          {item}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {selectedRoom.description && (
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description:</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {selectedRoom.description}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Booking Form */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Booking Details</h3>
-            
-            <form onSubmit={handleRoomBooking} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Check-in Date *
-                </label>
-                <input
-                  type="date"
-                  value={bookingForm.check_in_date}
-                  onChange={(e) => setBookingForm({...bookingForm, check_in_date: e.target.value})}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Check-out Date *
-                </label>
-                <input
-                  type="date"
-                  value={bookingForm.check_out_date}
-                  onChange={(e) => setBookingForm({...bookingForm, check_out_date: e.target.value})}
-                  min={bookingForm.check_in_date || new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Special Requirements
-                </label>
-                <textarea
-                  value={bookingForm.special_requirements}
-                  onChange={(e) => setBookingForm({...bookingForm, special_requirements: e.target.value})}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-                  placeholder="Any special requirements or requests..."
-                />
-              </div>
-
-              {/* Cost Calculation */}
-              {bookingForm.check_in_date && bookingForm.check_out_date && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Total Cost:
-                    </span>
-                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                      ${calculateTotalCost()}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {Math.ceil((new Date(bookingForm.check_out_date) - new Date(bookingForm.check_in_date)) / (1000 * 60 * 60 * 24))} days × ${selectedRoom.daily_rate}/day
-                  </p>
-                </div>
-              )}
-
-              <div className="flex space-x-4 pt-4">
-                <button
-                  type="submit"
-                  disabled={bookingLoading}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg flex items-center justify-center disabled:cursor-not-allowed"
-                >
-                  {bookingLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Booking...
-                    </>
-                  ) : (
-                    <>
-                      <Building className="h-4 w-4 mr-2" />
-                      Book Room
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRoom(null)}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -1210,7 +983,7 @@ const PatientDashboard = () => {
                 <input type="checkbox" className="toggle" defaultChecked />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Payment Reminders</span>
+                <span className="text-gray-700 dark:text-gray-300">Prescription Refills</span>
                 <input type="checkbox" className="toggle" />
               </div>
             </div>
@@ -1252,14 +1025,10 @@ const PatientDashboard = () => {
         return renderMedicalRecords();
       case 'messages':
         return renderMessages();
-      case 'compose-message':
-        return renderComposeMessage();
       case 'payments':
         return renderPayments();
       case 'room-booking':
         return renderRoomBooking();
-      case 'book-room':
-        return renderBookRoom();
       case 'profile':
         return renderProfile();
       case 'settings':
