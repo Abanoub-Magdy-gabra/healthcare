@@ -10,6 +10,8 @@ import {
   Heart,
   Shield,
   Users,
+  AlertCircle,
+  Info,
 } from "lucide-react";
 
 const Login = () => {
@@ -20,6 +22,19 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const demoAccounts = [
+    { role: 'Admin', email: 'admin@healthcareportal.com', password: 'admin123' },
+    { role: 'Doctor', email: 'dr.johnson@healthcareportal.com', password: 'doctor123' },
+    { role: 'Nurse', email: 'nurse.davis@healthcareportal.com', password: 'nurse123' },
+    { role: 'Patient', email: 'john.smith@email.com', password: 'patient123' }
+  ];
+
+  const handleDemoLogin = (demoEmail, demoPassword) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setError("");
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -130,35 +145,47 @@ const Login = () => {
           {/* Error Message */}
           {error && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400 text-red-700 dark:text-red-200 rounded-md animate-shake">
-              <div className="flex items-center">
+              <div className="flex items-start">
                 <div className="flex-shrink-0">
-                  <svg
-                    className="h-5 w-5 text-red-400"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
                 </div>
-                <div className="ml-3 text-sm">{error}</div>
+                <div className="ml-3">
+                  <div className="text-sm font-medium">Login Failed</div>
+                  <div className="text-sm mt-1">{error}</div>
+                </div>
               </div>
             </div>
           )}
 
           {/* Demo Accounts Info */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">
-              Demo Accounts Available:
-            </h3>
-            <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-              <div><strong>Admin:</strong> admin@healthcareportal.com / admin123</div>
-              <div><strong>Doctor:</strong> dr.johnson@healthcareportal.com / doctor123</div>
-              <div><strong>Nurse:</strong> nurse.davis@healthcareportal.com / nurse123</div>
-              <div><strong>Patient:</strong> john.smith@email.com / patient123</div>
+            <div className="flex items-start">
+              <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+              <div className="ml-3">
+                <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-3">
+                  Demo Accounts - Click to Auto-Fill:
+                </h3>
+                <div className="grid grid-cols-1 gap-2">
+                  {demoAccounts.map((account, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => handleDemoLogin(account.email, account.password)}
+                      className="text-left p-2 rounded bg-blue-100 dark:bg-blue-800/30 hover:bg-blue-200 dark:hover:bg-blue-700/40 transition-colors"
+                    >
+                      <div className="text-xs font-medium text-blue-800 dark:text-blue-200">
+                        <strong>{account.role}:</strong> {account.email}
+                      </div>
+                      <div className="text-xs text-blue-600 dark:text-blue-300">
+                        Password: {account.password}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                  <strong>Note:</strong> If demo accounts don't work, you may need to register with these credentials first.
+                </div>
+              </div>
             </div>
           </div>
 

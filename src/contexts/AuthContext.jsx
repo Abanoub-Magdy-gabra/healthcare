@@ -104,7 +104,32 @@ export const AuthProvider = ({ children }) => {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Provide more specific error messages
+        let errorMessage = error.message;
+        
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+          
+          // Check if this is a demo account that might not exist
+          const demoEmails = [
+            'admin@healthcareportal.com',
+            'dr.johnson@healthcareportal.com', 
+            'nurse.davis@healthcareportal.com',
+            'john.smith@email.com'
+          ];
+          
+          if (demoEmails.includes(email.toLowerCase())) {
+            errorMessage += ' If you\'re using a demo account, please ensure you\'ve registered with these credentials first, or contact support.';
+          }
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Please check your email and click the confirmation link before signing in.';
+        } else if (error.message.includes('Too many requests')) {
+          errorMessage = 'Too many login attempts. Please wait a few minutes before trying again.';
+        }
+        
+        throw new Error(errorMessage);
+      }
 
       return { user: data.user, error: null };
     } catch (error) {
