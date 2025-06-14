@@ -26,11 +26,13 @@ import {
   Download,
   MessageSquare,
   MapPin,
-  Star
+  Star,
+  Save,
+  Camera
 } from 'lucide-react';
 
 const PatientDashboard = () => {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [activeCase, setActiveCase] = useState('dashboard');
   const [appointments, setAppointments] = useState([]);
   const [medicalRecords, setMedicalRecords] = useState([]);
@@ -41,10 +43,33 @@ const PatientDashboard = () => {
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(false);
   const [doctors, setDoctors] = useState([]);
+  
+  // Profile editing state
+  const [profileData, setProfileData] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    date_of_birth: '',
+    address: '',
+    emergency_contact: '',
+    emergency_phone: ''
+  });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
 
   useEffect(() => {
     if (user?.id) {
       loadPatientData();
+      // Initialize profile data
+      setProfileData({
+        full_name: user.full_name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        date_of_birth: user.date_of_birth || '',
+        address: user.address || '',
+        emergency_contact: user.emergency_contact || '',
+        emergency_phone: user.emergency_phone || ''
+      });
     }
   }, [user]);
 
@@ -89,6 +114,38 @@ const PatientDashboard = () => {
 
   const handleNavigation = (section) => {
     setActiveCase(section);
+  };
+
+  const handleProfileChange = (field, value) => {
+    setProfileData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setProfileLoading(true);
+    setProfileMessage('');
+
+    try {
+      const { profile, error } = await updateProfile(profileData);
+      
+      if (error) {
+        setProfileMessage(`Error: ${error}`);
+      } else {
+        setProfileMessage('Profile updated successfully!');
+        // Reload data to reflect changes
+        setTimeout(() => {
+          setProfileMessage('');
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      setProfileMessage('Failed to update profile. Please try again.');
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -261,6 +318,190 @@ const PatientDashboard = () => {
     </div>
   );
 
+  const renderProfile = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Profile</h2>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Patient ID: {user?.id?.slice(0, 8)}...
+        </div>
+      </div>
+      
+      {profileMessage && (
+        <div className={`p-4 rounded-lg ${
+          profileMessage.includes('Error') 
+            ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200 border border-red-200 dark:border-red-800'
+            : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-200 border border-green-200 dark:border-green-800'
+        }`}>
+          {profileMessage}
+        </div>
+      )}
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        {/* Profile Header */}
+        <div className="flex items-center space-x-6 mb-8">
+          <div className="relative">
+            <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+              <span className="text-3xl font-bold text-white">
+                {user?.full_name?.charAt(0)?.toUpperCase() || 'P'}
+              </span>
+            </div>
+            <button className="absolute bottom-0 right-0 bg-white dark:bg-gray-700 rounded-full p-2 shadow-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+              <Camera className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+            </button>
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{user?.full_name || 'Patient'}</h3>
+            <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
+            <div className="flex items-center mt-2">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                Patient
+              </span>
+              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                Member since {new Date(user?.created_at).getFullYear()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Profile Form */}
+        <form onSubmit={handleProfileSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                value={profileData.full_name}
+                onChange={(e) => handleProfileChange('full_name', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Email Address *
+              </label>
+              <input
+                type="email"
+                value={profileData.email}
+                onChange={(e) => handleProfileChange('email', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={profileData.phone}
+                onChange={(e) => handleProfileChange('phone', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                placeholder="Enter your phone number"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Date of Birth
+              </label>
+              <input
+                type="date"
+                value={profileData.date_of_birth}
+                onChange={(e) => handleProfileChange('date_of_birth', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Emergency Contact
+              </label>
+              <input
+                type="text"
+                value={profileData.emergency_contact}
+                onChange={(e) => handleProfileChange('emergency_contact', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                placeholder="Emergency contact name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Emergency Phone
+              </label>
+              <input
+                type="tel"
+                value={profileData.emergency_phone}
+                onChange={(e) => handleProfileChange('emergency_phone', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                placeholder="Emergency contact phone"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Address
+            </label>
+            <textarea
+              rows={3}
+              value={profileData.address}
+              onChange={(e) => handleProfileChange('address', e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none transition-all duration-200"
+              placeholder="Enter your full address"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={() => {
+                setProfileData({
+                  full_name: user.full_name || '',
+                  email: user.email || '',
+                  phone: user.phone || '',
+                  date_of_birth: user.date_of_birth || '',
+                  address: user.address || '',
+                  emergency_contact: user.emergency_contact || '',
+                  emergency_phone: user.emergency_phone || ''
+                });
+                setProfileMessage('');
+              }}
+              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              Reset
+            </button>
+            <button
+              type="submit"
+              disabled={profileLoading}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors flex items-center"
+            >
+              {profileLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Update Profile
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
   const renderAppointments = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -331,379 +572,6 @@ const PatientDashboard = () => {
     </div>
   );
 
-  const renderMedicalRecords = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Medical Records</h2>
-        <button className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg flex items-center">
-          <Download className="h-4 w-4 mr-2" />
-          Export Records
-        </button>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <div className="space-y-4">
-            {medicalRecords.map((record) => (
-              <div key={record.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {record.title}
-                      </h3>
-                      <span className="text-sm text-blue-600 dark:text-blue-400">
-                        {record.record_type}
-                      </span>
-                      {record.is_critical && (
-                        <span className="px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs font-medium rounded-full">
-                          Critical
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      {record.description}
-                    </p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-500">
-                      <span>Dr. {record.doctor?.full_name}</span>
-                      <span>•</span>
-                      <span>{formatDate(record.record_date)}</span>
-                    </div>
-                  </div>
-                  <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                    <Eye className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-            {medicalRecords.length === 0 && (
-              <div className="text-center py-8">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No medical records available</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderMessages = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Messages</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
-          <Plus className="h-4 w-4 mr-2" />
-          New Message
-        </button>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div key={message.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {message.subject}
-                      </h3>
-                      {!message.is_read && (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      From: {message.sender?.full_name}
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                      {message.content}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                      {formatDate(message.created_at)}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      message.priority === 'high' 
-                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        : message.priority === 'medium'
-                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                    }`}>
-                      {message.priority}
-                    </span>
-                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {messages.length === 0 && (
-              <div className="text-center py-8">
-                <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No messages yet</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderPayments = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Payments & Billing</h2>
-        <button className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg flex items-center">
-          <Download className="h-4 w-4 mr-2" />
-          Download Invoices
-        </button>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <div className="space-y-4">
-            {payments.map((payment) => (
-              <div key={payment.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {payment.description}
-                      </h3>
-                      <span className="text-sm text-blue-600 dark:text-blue-400">
-                        {payment.invoice_number}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                      <span>Amount: ${payment.amount}</span>
-                      {payment.payment_method && <span>• {payment.payment_method}</span>}
-                      <span>• {formatDate(payment.created_at)}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      payment.status === 'paid' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : payment.status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                    }`}>
-                      {payment.status}
-                    </span>
-                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {payments.length === 0 && (
-              <div className="text-center py-8">
-                <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No payment records</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderRoomBooking = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Room Bookings</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
-          <Plus className="h-4 w-4 mr-2" />
-          Book Room
-        </button>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <div className="space-y-4">
-            {roomBookings.map((booking) => (
-              <div key={booking.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Room {booking.room?.room_number}
-                      </h3>
-                      <span className="text-sm text-blue-600 dark:text-blue-400">
-                        {booking.room?.room_type}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                      <span>Check-in: {formatDate(booking.check_in_date)}</span>
-                      <span>Check-out: {formatDate(booking.check_out_date)}</span>
-                      <span>Total: ${booking.total_cost}</span>
-                    </div>
-                    {booking.special_requirements && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                        Requirements: {booking.special_requirements}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      booking.status === 'confirmed' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : booking.status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                    }`}>
-                      {booking.status}
-                    </span>
-                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {roomBookings.length === 0 && (
-              <div className="text-center py-8">
-                <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No room bookings</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderProfile = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Profile</h2>
-      
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center space-x-6 mb-6">
-          <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center">
-            <span className="text-2xl font-bold text-white">
-              {user?.full_name?.charAt(0)?.toUpperCase() || 'P'}
-            </span>
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{user?.full_name}</h3>
-            <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-500">Patient</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Full Name
-            </label>
-            <input
-              type="text"
-              value={user?.full_name || ''}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              readOnly
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={user?.email || ''}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              readOnly
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              value={user?.phone || ''}
-              placeholder="Add phone number"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Date of Birth
-            </label>
-            <input
-              type="date"
-              value={user?.date_of_birth || ''}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Address
-          </label>
-          <textarea
-            rows={3}
-            value={user?.address || ''}
-            placeholder="Add your address"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-          />
-        </div>
-
-        <div className="mt-6">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
-            Update Profile
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderSettings = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h2>
-      
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Notifications</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Appointment Reminders</span>
-                <input type="checkbox" className="toggle" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Test Results</span>
-                <input type="checkbox" className="toggle" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Payment Reminders</span>
-                <input type="checkbox" className="toggle" />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Privacy</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Share data with doctors</span>
-                <input type="checkbox" className="toggle" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Allow emergency access</span>
-                <input type="checkbox" className="toggle" defaultChecked />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   const renderContent = () => {
     if (loading) {
       return (
@@ -718,18 +586,8 @@ const PatientDashboard = () => {
         return renderDashboardOverview();
       case 'appointments':
         return renderAppointments();
-      case 'medical-records':
-        return renderMedicalRecords();
-      case 'messages':
-        return renderMessages();
-      case 'payments':
-        return renderPayments();
-      case 'room-booking':
-        return renderRoomBooking();
       case 'profile':
         return renderProfile();
-      case 'settings':
-        return renderSettings();
       default:
         return renderDashboardOverview();
     }

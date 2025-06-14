@@ -18,6 +18,9 @@ import {
   UserCheck,
   ChevronRight,
   DoorClosed,
+  MessageSquare,
+  Bell,
+  User,
 } from "lucide-react";
 
 const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
@@ -25,13 +28,28 @@ const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [notificationCount, setNotificationCount] = useState(0);
 
-  const handleLogout = () => {
-    // Use AuthContext logout to properly clear user state
-    logout();
+  useEffect(() => {
+    // Load notification count for logged in users
+    if (user) {
+      // Mock notification count - in real app, this would come from API
+      setNotificationCount(3);
+    }
+  }, [user]);
 
-    // Navigate to login page
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      // Use AuthContext logout to properly clear user state
+      await logout();
+      
+      // Navigate to login page after successful logout
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if logout fails, redirect to login
+      navigate("/login", { replace: true });
+    }
   };
 
   // Navigation items based on role
@@ -40,6 +58,7 @@ const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
       { name: "Home", key: "home", icon: DoorClosed },
       { name: "Dashboard", key: "dashboard", icon: Home },
       { name: "Profile", key: "profile", icon: UserCheck },
+      { name: "Messages", key: "messages", icon: MessageSquare },
       { name: "Settings", key: "settings", icon: Settings },
     ];
 
@@ -50,10 +69,11 @@ const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
           baseItems[1], // Dashboard
           { name: "Appointments", key: "appointments", icon: Calendar },
           { name: "Medical Records", key: "medical-records", icon: FileText },
-          { name: "Messages", key: "messages", icon: Users },
+          baseItems[3], // Messages
           { name: "Payments", key: "payments", icon: CreditCard },
           { name: "Room Booking", key: "room-booking", icon: Building },
-          ...baseItems.slice(2), // Profile, Settings
+          baseItems[2], // Profile
+          baseItems[4], // Settings
         ];
       case "doctor":
         return [
@@ -63,7 +83,9 @@ const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
           { name: "Patients", key: "patients", icon: Users },
           { name: "Schedule", key: "schedule", icon: Clock },
           { name: "Reports", key: "reports", icon: FileText },
-          ...baseItems.slice(2), // Profile, Settings
+          baseItems[3], // Messages
+          baseItems[2], // Profile
+          baseItems[4], // Settings
         ];
       case "nurse":
         return [
@@ -73,7 +95,9 @@ const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
           { name: "Shifts", key: "shifts", icon: Clock },
           { name: "Requests", key: "requests", icon: Activity },
           { name: "Reports", key: "reports", icon: FileText },
-          ...baseItems.slice(2), // Profile, Settings
+          baseItems[3], // Messages
+          baseItems[2], // Profile
+          baseItems[4], // Settings
         ];
       case "admin":
         return [
@@ -84,7 +108,9 @@ const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
           { name: "Payments", key: "payments", icon: CreditCard },
           { name: "Reports", key: "reports", icon: FileText },
           { name: "Activities", key: "activities", icon: Activity },
-          ...baseItems.slice(2), // Profile, Settings
+          baseItems[3], // Messages
+          baseItems[2], // Profile
+          baseItems[4], // Settings
         ];
       default:
         return baseItems;
@@ -95,6 +121,56 @@ const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
 
   const isActiveCase = (key) => {
     return activeCase === key;
+  };
+
+  // Get user's display name
+  const getUserDisplayName = () => {
+    if (!user) return "";
+    
+    // Try to get full name first, then fall back to email
+    if (user.full_name) {
+      return user.full_name;
+    }
+    
+    if (user.name) {
+      return user.name;
+    }
+    
+    // Extract name from email as last resort
+    if (user.email) {
+      const emailName = user.email.split('@')[0];
+      return emailName.charAt(0).toUpperCase() + emailName.slice(1);
+    }
+    
+    return "User";
+  };
+
+  // Get user's initials for avatar
+  const getUserInitials = () => {
+    const displayName = getUserDisplayName();
+    const names = displayName.split(' ');
+    
+    if (names.length >= 2) {
+      return names[0].charAt(0).toUpperCase() + names[1].charAt(0).toUpperCase();
+    }
+    
+    return displayName.charAt(0).toUpperCase();
+  };
+
+  // Get role display name
+  const getRoleDisplayName = (role) => {
+    switch (role) {
+      case 'admin':
+        return 'Administrator';
+      case 'doctor':
+        return 'Doctor';
+      case 'nurse':
+        return 'Nurse';
+      case 'patient':
+        return 'Patient';
+      default:
+        return role ? role.charAt(0).toUpperCase() + role.slice(1) : 'User';
+    }
   };
 
   return (
@@ -124,17 +200,17 @@ const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
         {/* User info */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center">
-            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-white font-semibold">
-                {user?.name?.charAt(0)?.toUpperCase() || "U"}
+            <div className="w-10 h-10 bg-gradient-to-r from-primary to-primary-dark rounded-full flex items-center justify-center shadow-sm">
+              <span className="text-white font-semibold text-sm">
+                {getUserInitials()}
               </span>
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {user?.name || "User"}
+            <div className="ml-3 flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {getUserDisplayName()}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                {role}
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {getRoleDisplayName(role)}
               </p>
             </div>
           </div>
@@ -173,14 +249,18 @@ const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
                 />
                 {item.name}
                 {current && <ChevronRight className="ml-auto h-4 w-4" />}
+                {item.key === "messages" && notificationCount > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                    {notificationCount}
+                  </span>
+                )}
               </button>
             );
           })}
         </nav>
 
-        {/* Theme toggle and Logout section */}
-        <div className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
-
+        {/* Logout section */}
+        <div className="p-3 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={handleLogout}
             className="group flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -204,24 +284,40 @@ const DashboardLayout = ({ children, role, activeCase, onNavigate }) => {
                 <Menu className="h-6 w-6" />
               </button>
               <h1 className="ml-2 lg:ml-0 text-xl font-semibold text-gray-900 dark:text-white capitalize">
-                {role} Dashboard
+                {getRoleDisplayName(role)} Dashboard
               </h1>
             </div>
 
             {/* Desktop user menu */}
             <div className="hidden lg:flex items-center space-x-4">
               <ThemeToggle />
+              
+              {/* Notifications */}
+              <div className="relative">
+                <button
+                  onClick={() => onNavigate && onNavigate('messages')}
+                  className="p-2 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 transition-colors relative"
+                >
+                  <Bell className="h-6 w-6" />
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                      {notificationCount > 9 ? '9+' : notificationCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {user?.name || "User"}
+                  {getUserDisplayName()}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                  {role}
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {getRoleDisplayName(role)}
                 </p>
               </div>
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-primary to-primary-dark rounded-full flex items-center justify-center shadow-sm">
                 <span className="text-white text-sm font-semibold">
-                  {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                  {getUserInitials()}
                 </span>
               </div>
             </div>

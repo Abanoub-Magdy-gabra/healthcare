@@ -322,13 +322,24 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      console.log('Logging out user...');
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.error('Logout error:', error);
+        throw error;
+      }
       
+      // Clear user state immediately
       setUser(null);
       setProfile(null);
+      
+      console.log('User logged out successfully');
     } catch (error) {
       console.error('Logout error:', error);
+      // Even if logout fails, clear the local state
+      setUser(null);
+      setProfile(null);
+      throw error;
     }
   };
 
@@ -336,8 +347,12 @@ export const AuthProvider = ({ children }) => {
     try {
       if (!user) throw new Error('No user logged in');
       
+      console.log('Updating profile with:', updates);
+      
       const updatedProfile = await dbService.updateProfile(user.id, updates);
       setProfile(updatedProfile);
+      
+      console.log('Profile updated successfully:', updatedProfile);
       return { profile: updatedProfile, error: null };
     } catch (error) {
       console.error('Update profile error:', error);

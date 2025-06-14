@@ -24,11 +24,15 @@ import {
   User,
   MessageSquare,
   Star,
-  Navigation
+  Navigation,
+  Save,
+  Camera,
+  Award,
+  Shield
 } from 'lucide-react';
 
 const NurseDashboard = () => {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [activeCase, setActiveCase] = useState('dashboard');
   const [patients, setPatients] = useState([]);
   const [shifts, setShifts] = useState([]);
@@ -37,9 +41,34 @@ const NurseDashboard = () => {
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(false);
 
+  // Profile editing state
+  const [profileData, setProfileData] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    license_number: '',
+    experience_years: '',
+    department: '',
+    specialization: '',
+    bio: ''
+  });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
+
   useEffect(() => {
     if (user?.id) {
       loadNurseData();
+      // Initialize profile data
+      setProfileData({
+        full_name: user.full_name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        license_number: user.license_number || '',
+        experience_years: user.experience_years || '',
+        department: user.department || '',
+        specialization: user.specialization || '',
+        bio: user.bio || ''
+      });
     }
   }, [user]);
 
@@ -104,6 +133,37 @@ const NurseDashboard = () => {
 
   const handleNavigation = (section) => {
     setActiveCase(section);
+  };
+
+  const handleProfileChange = (field, value) => {
+    setProfileData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setProfileLoading(true);
+    setProfileMessage('');
+
+    try {
+      const { profile, error } = await updateProfile(profileData);
+      
+      if (error) {
+        setProfileMessage(`Error: ${error}`);
+      } else {
+        setProfileMessage('Profile updated successfully!');
+        setTimeout(() => {
+          setProfileMessage('');
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      setProfileMessage('Failed to update profile. Please try again.');
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -278,386 +338,220 @@ const NurseDashboard = () => {
     </div>
   );
 
-  const renderPatients = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Patients</h2>
-        <div className="flex space-x-3">
-          <div className="relative">
-            <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search patients..."
-              className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <div className="space-y-4">
-            {patients.map((patient) => (
-              <div key={patient.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {patient.full_name}
-                      </h3>
-                      <span className="text-sm text-blue-600 dark:text-blue-400">
-                        {patient.requestType}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex items-center">
-                        <Mail className="h-4 w-4 mr-1" />
-                        {patient.email}
-                      </div>
-                      <div className="flex items-center">
-                        <Phone className="h-4 w-4 mr-1" />
-                        {patient.phone}
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        Last visit: {formatDate(patient.lastVisit)}
-                      </div>
-                      <div className="flex items-center">
-                        <MapPin className="h-4 w-4 mr-1" />
-                        Home care
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      patient.status === 'completed' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : patient.status === 'in_progress'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                    }`}>
-                      {patient.status.replace('_', ' ')}
-                    </span>
-                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                      <Edit className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {patients.length === 0 && (
-              <div className="text-center py-8">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No patients assigned yet</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderShifts = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Shifts</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
-          <Plus className="h-4 w-4 mr-2" />
-          Request Shift
-        </button>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <div className="space-y-4">
-            {shifts.map((shift) => (
-              <div key={shift.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {shift.location}
-                      </h3>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {formatDate(shift.date)}
-                      </div>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 mr-1" />
-                        {shift.startTime} - {shift.endTime}
-                      </div>
-                      <div className="flex items-center">
-                        <Users className="h-4 w-4 mr-1" />
-                        {shift.patients} patients
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      shift.status === 'completed' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : shift.status === 'scheduled'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                    }`}>
-                      {shift.status}
-                    </span>
-                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {shifts.length === 0 && (
-              <div className="text-center py-8">
-                <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No shifts scheduled</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderRequests = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Care Requests</h2>
-        <div className="flex space-x-3">
-          <button className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg flex items-center">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <div className="space-y-4">
-            {requests.map((request) => (
-              <div key={request.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {request.patient?.full_name}
-                      </h3>
-                      <span className="text-sm text-blue-600 dark:text-blue-400">
-                        {request.request_type}
-                      </span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        request.priority === 'urgent' 
-                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                          : request.priority === 'high'
-                          ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                      }`}>
-                        {request.priority}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      {request.description}
-                    </p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {formatDate(request.requested_date)}
-                      </div>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 mr-1" />
-                        {formatTime(request.requested_time)} ({request.duration_hours}h)
-                      </div>
-                      <div className="flex items-center">
-                        <MapPin className="h-4 w-4 mr-1" />
-                        {request.address}
-                      </div>
-                    </div>
-                    {request.services && request.services.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {request.services.map((service, index) => (
-                          <span key={index} className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                            {service}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      request.status === 'completed' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : request.status === 'in_progress'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                        : request.status === 'confirmed'
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                    }`}>
-                      {request.status.replace('_', ' ')}
-                    </span>
-                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                      <Edit className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {requests.length === 0 && (
-              <div className="text-center py-8">
-                <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No care requests available</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderReports = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reports</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
-          <Plus className="h-4 w-4 mr-2" />
-          Create Report
-        </button>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <div className="text-center py-8">
-            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">Reports feature coming soon</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   const renderProfile = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Profile</h2>
-      
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center space-x-6 mb-6">
-          <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center">
-            <span className="text-2xl font-bold text-white">
-              {user?.full_name?.charAt(0)?.toUpperCase() || 'N'}
-            </span>
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{user?.full_name}</h3>
-            <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-500">Registered Nurse</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Full Name
-            </label>
-            <input
-              type="text"
-              value={user?.full_name || ''}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              readOnly
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={user?.email || ''}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              readOnly
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              License Number
-            </label>
-            <input
-              type="text"
-              value={user?.license_number || ''}
-              placeholder="Add license number"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Specialization
-            </label>
-            <input
-              type="text"
-              value={user?.specialization || ''}
-              placeholder="Add specialization"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
-            Update Profile
-          </button>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Profile</h2>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Nurse ID: {user?.id?.slice(0, 8)}...
         </div>
       </div>
-    </div>
-  );
-
-  const renderSettings = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h2>
       
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Notifications</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">New Care Requests</span>
-                <input type="checkbox" className="toggle" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Shift Reminders</span>
-                <input type="checkbox" className="toggle" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Patient Updates</span>
-                <input type="checkbox" className="toggle" />
-              </div>
-            </div>
-          </div>
+      {profileMessage && (
+        <div className={`p-4 rounded-lg ${
+          profileMessage.includes('Error') 
+            ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200 border border-red-200 dark:border-red-800'
+            : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-200 border border-green-200 dark:border-green-800'
+        }`}>
+          {profileMessage}
+        </div>
+      )}
 
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        {/* Profile Header */}
+        <div className="flex items-center space-x-6 mb-8">
+          <div className="relative">
+            <div className="w-24 h-24 bg-gradient-to-r from-green-500 to-teal-600 rounded-full flex items-center justify-center shadow-lg">
+              <span className="text-3xl font-bold text-white">
+                {user?.full_name?.charAt(0)?.toUpperCase() || 'N'}
+              </span>
+            </div>
+            <button className="absolute bottom-0 right-0 bg-white dark:bg-gray-700 rounded-full p-2 shadow-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+              <Camera className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+            </button>
+          </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Availability</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Available for home visits</span>
-                <input type="checkbox" className="toggle" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Emergency calls</span>
-                <input type="checkbox" className="toggle" />
-              </div>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{user?.full_name || 'Nurse'}</h3>
+            <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
+            <div className="flex items-center mt-2 space-x-3">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                <Shield className="h-3 w-3 mr-1" />
+                Registered Nurse
+              </span>
+              {user?.department && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  {user.department}
+                </span>
+              )}
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {user?.experience_years} years experience
+              </span>
             </div>
           </div>
         </div>
+
+        {/* Profile Form */}
+        <form onSubmit={handleProfileSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                value={profileData.full_name}
+                onChange={(e) => handleProfileChange('full_name', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Email Address *
+              </label>
+              <input
+                type="email"
+                value={profileData.email}
+                onChange={(e) => handleProfileChange('email', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={profileData.phone}
+                onChange={(e) => handleProfileChange('phone', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                placeholder="Enter your phone number"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                License Number *
+              </label>
+              <input
+                type="text"
+                value={profileData.license_number}
+                onChange={(e) => handleProfileChange('license_number', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                placeholder="Enter your nursing license number"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Years of Experience
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="50"
+                value={profileData.experience_years}
+                onChange={(e) => handleProfileChange('experience_years', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                placeholder="Years of experience"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Department/Unit
+              </label>
+              <select
+                value={profileData.department}
+                onChange={(e) => handleProfileChange('department', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+              >
+                <option value="">Select department</option>
+                <option value="Emergency">Emergency Department</option>
+                <option value="ICU">Intensive Care Unit</option>
+                <option value="Pediatrics">Pediatrics</option>
+                <option value="Surgery">Surgery</option>
+                <option value="Cardiology">Cardiology</option>
+                <option value="Oncology">Oncology</option>
+                <option value="Home Care">Home Care</option>
+                <option value="General Medicine">General Medicine</option>
+                <option value="Maternity">Maternity</option>
+                <option value="Geriatrics">Geriatrics</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Specialization
+              </label>
+              <input
+                type="text"
+                value={profileData.specialization}
+                onChange={(e) => handleProfileChange('specialization', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
+                placeholder="e.g., Critical Care, Pediatric Nursing, etc."
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Professional Bio
+            </label>
+            <textarea
+              rows={4}
+              value={profileData.bio}
+              onChange={(e) => handleProfileChange('bio', e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none transition-all duration-200"
+              placeholder="Brief description of your nursing expertise and approach to patient care..."
+            />
+          </div>
+
+          <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={() => {
+                setProfileData({
+                  full_name: user.full_name || '',
+                  email: user.email || '',
+                  phone: user.phone || '',
+                  license_number: user.license_number || '',
+                  experience_years: user.experience_years || '',
+                  department: user.department || '',
+                  specialization: user.specialization || '',
+                  bio: user.bio || ''
+                });
+                setProfileMessage('');
+              }}
+              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              Reset
+            </button>
+            <button
+              type="submit"
+              disabled={profileLoading}
+              className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg transition-colors flex items-center"
+            >
+              {profileLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Update Profile
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -674,18 +568,8 @@ const NurseDashboard = () => {
     switch (activeCase) {
       case 'dashboard':
         return renderDashboardOverview();
-      case 'patients':
-        return renderPatients();
-      case 'shifts':
-        return renderShifts();
-      case 'requests':
-        return renderRequests();
-      case 'reports':
-        return renderReports();
       case 'profile':
         return renderProfile();
-      case 'settings':
-        return renderSettings();
       default:
         return renderDashboardOverview();
     }
