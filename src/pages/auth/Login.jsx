@@ -31,54 +31,19 @@ const Login = () => {
       return;
     }
 
-    // Check for admin credentials first
-    if (
-      email.toLowerCase() === "admin@healthcareportal.com" &&
-      password === "Admin@2024!"
-    ) {
-      try {
-        setLoading(true);
-
-        // Create admin user object directly
-        const adminUser = {
-          id: "admin001",
-          name: "System Administrator",
-          email: "admin@healthcareportal.com",
-          role: "admin",
-          isAuthenticated: true,
-          loginAt: new Date().toISOString(),
-        };
-
-        // Store admin user in localStorage
-        localStorage.setItem("user", JSON.stringify(adminUser));
-        localStorage.removeItem("userLoggedOut");
-
-        // Redirect to admin dashboard
-        window.location.href = "/admin-dashboard";
-        return;
-      } catch (err) {
-        setError("Failed to log in as admin");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
     try {
       setLoading(true);
 
-      const user = login(email, password);
+      const { user, error: loginError } = await login(email, password);
+      
+      if (loginError) {
+        setError(loginError);
+        return;
+      }
+
       if (user) {
-        // Check if user is admin and redirect accordingly
-        if (user.role === "admin") {
-          window.location.href = "/dashboard";
-        } else {
-          // Navigate to regular dashboard
-          window.location.href = "/";
-        }
-      } else {
-        setError("Invalid email or password. Please check your credentials.");
+        // Login successful - navigate to dashboard
+        navigate("/dashboard");
       }
     } catch (err) {
       setError("Failed to log in");
@@ -184,6 +149,19 @@ const Login = () => {
             </div>
           )}
 
+          {/* Demo Accounts Info */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">
+              Demo Accounts Available:
+            </h3>
+            <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+              <div><strong>Admin:</strong> admin@healthcareportal.com / admin123</div>
+              <div><strong>Doctor:</strong> dr.johnson@healthcareportal.com / doctor123</div>
+              <div><strong>Nurse:</strong> nurse.davis@healthcareportal.com / nurse123</div>
+              <div><strong>Patient:</strong> john.smith@email.com / patient123</div>
+            </div>
+          </div>
+
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-5">
@@ -211,11 +189,6 @@ const Login = () => {
                     placeholder="you@example.com"
                   />
                 </div>
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Try: patient@example.com, doctor@example.com,
-                  nurse@example.com
-                </p>
-               
               </div>
 
               {/* Password Field */}

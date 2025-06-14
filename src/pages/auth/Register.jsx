@@ -15,40 +15,15 @@ import {
   Check,
 } from "lucide-react";
 
-// Add this test function - can be called from browser console
-window.testRegistration = () => {
-  const testUser = {
-    id: Date.now(),
-    name: "Test User",
-    email: "test@example.com",
-    password: "test123",
-    role: "patient",
-    registeredAt: new Date().toISOString(),
-    isVerified: false,
-  };
-
-  const existingUsers = JSON.parse(
-    localStorage.getItem("registeredUsers") || "[]"
-  );
-  existingUsers.push(testUser);
-  localStorage.setItem("registeredUsers", JSON.stringify(existingUsers));
-
-  console.log("🧪 Test user added:", testUser);
-  console.log("📋 All users after test:", existingUsers);
-  console.log(
-    "📦 localStorage content:",
-    localStorage.getItem("registeredUsers")
-  );
-
-  return "✅ Test completed - check console logs";
-};
-
 const Register = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState("");
+  const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [address, setAddress] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -62,7 +37,7 @@ const Register = () => {
 
     // Simple validation
     if (!name || !email || !password || !confirmPassword || !role) {
-      setError("Please fill in all fields");
+      setError("Please fill in all required fields");
       return;
     }
 
@@ -79,46 +54,26 @@ const Register = () => {
     try {
       setLoading(true);
 
-      // Store registration data for later login confirmation
-      const registrationData = {
-        id: Date.now(),
+      const userData = {
         name,
-        email,
-        password, // In real app, this would be hashed
-        role,
-        registeredAt: new Date().toISOString(),
-        isVerified: false,
+        phone,
+        dateOfBirth,
+        address,
+        role
       };
 
-      // Store registered users in localStorage
-      const existingUsers = JSON.parse(
-        localStorage.getItem("registeredUsers") || "[]"
-      );
-
-      // Check if user already exists
-      const userExists = existingUsers.find((user) => user.email === email);
-      if (userExists) {
-        setError("An account with this email already exists");
+      const { user, error: registerError } = await register(email, password, userData);
+      
+      if (registerError) {
+        setError(registerError);
         return;
       }
 
-      // Add new user to registered users
-      existingUsers.push(registrationData);
-      localStorage.setItem("registeredUsers", JSON.stringify(existingUsers));
-
-     
-
-      // Double-check that data was stored
-      const storedUsers = JSON.parse(
-        localStorage.getItem("registeredUsers") || "[]"
-      );
-    
-
-      // Show success message and redirect to login
-      alert(
-        "Account created successfully! Please login to confirm your account."
-      );
-      navigate("/login");
+      if (user) {
+        // Registration successful
+        alert("Account created successfully! Please check your email to verify your account, then login.");
+        navigate("/login");
+      }
     } catch (err) {
       setError("Failed to create an account");
       console.error(err);
@@ -153,7 +108,7 @@ const Register = () => {
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: `url('img/register.jpg')`,
+            backgroundImage: `url('https://images.unsplash.com/photo-1559757148-5c350d0d3c56?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80')`,
           }}
         />
 
@@ -256,7 +211,7 @@ const Register = () => {
                   htmlFor="name"
                   className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Full Name
+                  Full Name *
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -282,7 +237,7 @@ const Register = () => {
                   htmlFor="email"
                   className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Email Address
+                  Email Address *
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -308,7 +263,7 @@ const Register = () => {
                   htmlFor="role"
                   className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Role
+                  Role *
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -322,7 +277,7 @@ const Register = () => {
                     onChange={(e) => setRole(e.target.value)}
                     className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
                   >
-                    <option value="">Select your role </option>
+                    <option value="">Select your role</option>
                     {roleOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -337,13 +292,69 @@ const Register = () => {
                 )}
               </div>
 
+              {/* Phone Field */}
+              <div>
+                <label
+                  htmlFor="phone"
+                  className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Phone Number
+                </label>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="appearance-none block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
+                  placeholder="+1 (555) 123-4567"
+                />
+              </div>
+
+              {/* Date of Birth Field */}
+              <div>
+                <label
+                  htmlFor="dateOfBirth"
+                  className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Date of Birth
+                </label>
+                <input
+                  id="dateOfBirth"
+                  name="dateOfBirth"
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  className="appearance-none block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
+                />
+              </div>
+
+              {/* Address Field */}
+              <div>
+                <label
+                  htmlFor="address"
+                  className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Address
+                </label>
+                <textarea
+                  id="address"
+                  name="address"
+                  rows={2}
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="appearance-none block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500 resize-none"
+                  placeholder="123 Main St, City, State, ZIP"
+                />
+              </div>
+
               {/* Password Field */}
               <div>
                 <label
                   htmlFor="password"
                   className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Password
+                  Password *
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -380,7 +391,7 @@ const Register = () => {
                   htmlFor="confirmPassword"
                   className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Confirm Password
+                  Confirm Password *
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
