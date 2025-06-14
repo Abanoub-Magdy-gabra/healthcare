@@ -5,6 +5,50 @@ const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
+// Demo accounts configuration
+const DEMO_ACCOUNTS = [
+  {
+    email: 'admin@healthcareportal.com',
+    password: 'admin123',
+    name: 'Healthcare Admin',
+    role: 'admin',
+    phone: '+1-555-0101',
+    department: 'Administration'
+  },
+  {
+    email: 'dr.johnson@healthcareportal.com',
+    password: 'doctor123',
+    name: 'Dr. Sarah Johnson',
+    role: 'doctor',
+    phone: '+1-555-0102',
+    department: 'Cardiology',
+    specialization: 'Cardiology',
+    license_number: 'MD-12345',
+    experience_years: 15
+  },
+  {
+    email: 'nurse.davis@healthcareportal.com',
+    password: 'nurse123',
+    name: 'Emily Davis',
+    role: 'nurse',
+    phone: '+1-555-0103',
+    department: 'Emergency',
+    license_number: 'RN-67890',
+    experience_years: 8
+  },
+  {
+    email: 'john.smith@email.com',
+    password: 'patient123',
+    name: 'John Smith',
+    role: 'patient',
+    phone: '+1-555-0104',
+    date_of_birth: '1985-06-15',
+    address: '123 Main St, Anytown, USA',
+    emergency_contact: 'Jane Smith',
+    emergency_phone: '+1-555-0105'
+  }
+];
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -105,23 +149,69 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (error) {
-        // Provide more specific error messages
+        // Check if this is a demo account that needs to be auto-registered
+        if (error.message.includes('Invalid login credentials')) {
+          const demoAccount = DEMO_ACCOUNTS.find(account => 
+            account.email.toLowerCase() === email.toLowerCase()
+          );
+          
+          if (demoAccount && password === demoAccount.password) {
+            console.log('Demo account not found, attempting auto-registration for:', email);
+            
+            try {
+              // Auto-register the demo account
+              const { user: registeredUser, error: registerError } = await register(
+                demoAccount.email,
+                demoAccount.password,
+                {
+                  name: demoAccount.name,
+                  role: demoAccount.role,
+                  phone: demoAccount.phone,
+                  dateOfBirth: demoAccount.date_of_birth,
+                  address: demoAccount.address,
+                  emergencyContact: demoAccount.emergency_contact,
+                  emergencyPhone: demoAccount.emergency_phone,
+                  department: demoAccount.department,
+                  specialization: demoAccount.specialization,
+                  licenseNumber: demoAccount.license_number,
+                  experienceYears: demoAccount.experience_years
+                }
+              );
+
+              if (registerError) {
+                throw new Error(`Failed to auto-register demo account: ${registerError}`);
+              }
+
+              if (registeredUser) {
+                console.log('Demo account registered successfully, attempting login again');
+                
+                // Wait a moment for the registration to complete
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Retry login after successful registration
+                const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+                  email,
+                  password,
+                });
+
+                if (retryError) {
+                  throw new Error(`Login failed after auto-registration: ${retryError.message}`);
+                }
+
+                return { user: retryData.user, error: null };
+              }
+            } catch (autoRegisterError) {
+              console.error('Auto-registration failed:', autoRegisterError);
+              throw new Error(`Demo account setup failed: ${autoRegisterError.message}`);
+            }
+          }
+        }
+
+        // Provide more specific error messages for non-demo accounts
         let errorMessage = error.message;
         
         if (error.message.includes('Invalid login credentials')) {
           errorMessage = 'Invalid email or password. Please check your credentials and try again.';
-          
-          // Check if this is a demo account that might not exist
-          const demoEmails = [
-            'admin@healthcareportal.com',
-            'dr.johnson@healthcareportal.com', 
-            'nurse.davis@healthcareportal.com',
-            'john.smith@email.com'
-          ];
-          
-          if (demoEmails.includes(email.toLowerCase())) {
-            errorMessage += ' If you\'re using a demo account, please ensure you\'ve registered with these credentials first, or contact support.';
-          }
         } else if (error.message.includes('Email not confirmed')) {
           errorMessage = 'Please check your email and click the confirmation link before signing in.';
         } else if (error.message.includes('Too many requests')) {
@@ -175,6 +265,12 @@ export const AuthProvider = ({ children }) => {
           phone: userData.phone || null,
           date_of_birth: userData.dateOfBirth || null,
           address: userData.address || null,
+          emergency_contact: userData.emergencyContact || null,
+          emergency_phone: userData.emergencyPhone || null,
+          department: userData.department || null,
+          license_number: userData.licenseNumber || null,
+          specialization: userData.specialization || null,
+          experience_years: userData.experienceYears || null,
         };
 
         console.log('Creating profile with data:', profileData);
