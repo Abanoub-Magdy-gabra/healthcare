@@ -54,19 +54,35 @@ export const dbService = {
 
   async createProfile(profile) {
     try {
+      console.log('🔧 dbService.createProfile called with:', profile);
+      console.log('🎭 Role being inserted:', profile.role);
+      
+      // Use direct Supabase insert with explicit role
       const { data, error } = await supabase
         .from('profiles')
-        .insert(profile)
+        .insert({
+          id: profile.id,
+          email: profile.email,
+          full_name: profile.full_name,
+          role: profile.role, // Explicitly set the role
+          phone: profile.phone,
+          date_of_birth: profile.date_of_birth,
+          address: profile.address
+        })
         .select()
         .single()
       
       if (error) {
-        console.error('Error creating profile:', error)
+        console.error('❌ Error creating profile:', error)
         throw error
       }
+      
+      console.log('✅ Profile created in database:', data);
+      console.log('🎭 Final role in database:', data.role);
+      
       return data
     } catch (error) {
-      console.error('Profile creation error:', error)
+      console.error('❌ Profile creation error:', error)
       throw error
     }
   },

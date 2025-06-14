@@ -88,7 +88,7 @@ export const AuthProvider = ({ children }) => {
           id: authUser.id,
           email: authUser.email,
           full_name: authUser.user_metadata?.full_name || authUser.email.split('@')[0],
-          role: 'patient', // Default role
+          role: 'patient', // This should only be used if no role is provided during registration
         };
         
         profile = await dbService.createProfile(defaultProfile);
@@ -129,41 +129,58 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      console.log('Starting registration process with userData:', userData); // Debug log
+      console.log('🚀 Starting registration process');
+      console.log('📧 Email:', email);
+      console.log('👤 User Data:', userData);
+      console.log('🎭 Selected Role:', userData.role);
       
-      // Sign up the user
+      // Sign up the user first
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
       });
 
       if (authError) {
-        console.error('Auth signup error:', authError);
+        console.error('❌ Auth signup error:', authError);
         throw authError;
       }
 
+      console.log('✅ Auth user created:', authData.user?.id);
+
       if (authData.user) {
-        // Create profile with the exact role provided
+        // Create profile with the EXACT role provided - NO DEFAULTS
         const profileData = {
           id: authData.user.id,
           email,
           full_name: userData.name,
-          role: userData.role, // Use the exact role from userData - no fallback to 'patient'
+          role: userData.role, // CRITICAL: Use exact role from form
           phone: userData.phone || null,
           date_of_birth: userData.dateOfBirth || null,
           address: userData.address || null,
         };
 
-        console.log('Creating profile with exact role:', profileData.role); // Debug log
-        console.log('Full profile data:', profileData); // Debug log
+        console.log('📝 Creating profile with data:', profileData);
+        console.log('🎭 ROLE BEING SET:', profileData.role);
 
-        const createdProfile = await dbService.createProfile(profileData);
-        console.log('Profile created successfully:', createdProfile); // Debug log
+        // Use direct Supabase insert to ensure role is set correctly
+        const { data: createdProfile, error: profileError } = await supabase
+          .from('profiles')
+          .insert(profileData)
+          .select()
+          .single();
+
+        if (profileError) {
+          console.error('❌ Profile creation error:', profileError);
+          throw profileError;
+        }
+
+        console.log('✅ Profile created successfully:', createdProfile);
+        console.log('🎭 FINAL ROLE IN DATABASE:', createdProfile.role);
       }
 
       return { user: authData.user, error: null };
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('❌ Registration error:', error);
       return { user: null, error: error.message };
     } finally {
       setLoading(false);
