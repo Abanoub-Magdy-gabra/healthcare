@@ -30,7 +30,9 @@ import {
   Coffee,
   Shield,
   Search,
-  Filter
+  Filter,
+  Lock,
+  Trash2
 } from 'lucide-react';
 
 const PatientDashboard = () => {
@@ -47,7 +49,7 @@ const PatientDashboard = () => {
   
   // Room booking states
   const [selectedRoom, setSelectedRoom] = useState(null);
-  const [bookingStep, setBookingStep] = useState('browse'); // 'browse', 'book'
+  const [bookingStep, setBookingStep] = useState('browse'); // 'browse', 'book', 'payment'
   const [bookingForm, setBookingForm] = useState({
     checkInDate: '',
     checkOutDate: '',
@@ -55,11 +57,60 @@ const PatientDashboard = () => {
   });
   const [bookingLoading, setBookingLoading] = useState(false);
 
+  // Payment method states
+  const [paymentMethods, setPaymentMethods] = useState([
+    {
+      id: 1,
+      type: 'credit_card',
+      name: 'Credit Card',
+      last4: '4242',
+      brand: 'Visa',
+      expiryMonth: '12',
+      expiryYear: '2025',
+      isDefault: true
+    },
+    {
+      id: 2,
+      type: 'credit_card',
+      name: 'Credit Card',
+      last4: '5555',
+      brand: 'Mastercard',
+      expiryMonth: '08',
+      expiryYear: '2026',
+      isDefault: false
+    }
+  ]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
+  const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
+  const [newPaymentMethod, setNewPaymentMethod] = useState({
+    type: 'credit_card',
+    cardNumber: '',
+    expiryMonth: '',
+    expiryYear: '',
+    cvv: '',
+    cardholderName: '',
+    billingAddress: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: 'US'
+    }
+  });
+
   useEffect(() => {
     if (user?.id) {
       loadPatientData();
     }
   }, [user]);
+
+  useEffect(() => {
+    // Set default payment method when payment methods are loaded
+    if (paymentMethods.length > 0 && !selectedPaymentMethod) {
+      const defaultMethod = paymentMethods.find(method => method.isDefault) || paymentMethods[0];
+      setSelectedPaymentMethod(defaultMethod);
+    }
+  }, [paymentMethods, selectedPaymentMethod]);
 
   const loadPatientData = async () => {
     setLoading(true);
@@ -108,6 +159,7 @@ const PatientDashboard = () => {
         checkOutDate: '',
         specialRequirements: ''
       });
+      setSelectedPaymentMethod(paymentMethods.find(method => method.isDefault) || paymentMethods[0]);
     }
   };
 
@@ -135,9 +187,102 @@ const PatientDashboard = () => {
     return diffDays * parseFloat(selectedRoom.daily_rate);
   };
 
+  const handleAddPaymentMethod = () => {
+    if (!newPaymentMethod.cardNumber || !newPaymentMethod.expiryMonth || 
+        !newPaymentMethod.expiryYear || !newPaymentMethod.cvv || 
+        !newPaymentMethod.cardholderName) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    // Validate card number (basic validation)
+    const cardNumber = newPaymentMethod.cardNumber.replace(/\s/g, '');
+    if (cardNumber.length < 13 || cardNumber.length > 19) {
+      alert('Please enter a valid card number');
+      return;
+    }
+
+    // Determine card brand
+    let brand = 'Unknown';
+    if (cardNumber.startsWith('4')) brand = 'Visa';
+    else if (cardNumber.startsWith('5') || cardNumber.startsWith('2')) brand = 'Mastercard';
+    else if (cardNumber.startsWith('3')) brand = 'American Express';
+
+    const newMethod = {
+      id: Date.now(),
+      type: 'credit_card',
+      name: 'Credit Card',
+      last4: cardNumber.slice(-4),
+      brand: brand,
+      expiryMonth: newPaymentMethod.expiryMonth,
+      expiryYear: newPaymentMethod.expiryYear,
+      cardholderName: newPaymentMethod.cardholderName,
+      billingAddress: newPaymentMethod.billingAddress,
+      isDefault: paymentMethods.length === 0
+    };
+
+    setPaymentMethods([...paymentMethods, newMethod]);
+    
+    // Set as selected if it's the first payment method
+    if (paymentMethods.length === 0) {
+      setSelectedPaymentMethod(newMethod);
+    }
+
+    // Reset form
+    setNewPaymentMethod({
+      type: 'credit_card',
+      cardNumber: '',
+      expiryMonth: '',
+      expiryYear: '',
+      cvv: '',
+      cardholderName: '',
+      billingAddress: {
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: 'US'
+      }
+    });
+    setShowAddPaymentMethod(false);
+    alert('Payment method added successfully!');
+  };
+
+  const handleDeletePaymentMethod = (methodId) => {
+    if (paymentMethods.length === 1) {
+      alert('You must have at least one payment method');
+      return;
+    }
+
+    const updatedMethods = paymentMethods.filter(method => method.id !== methodId);
+    setPaymentMethods(updatedMethods);
+
+    // If deleted method was selected, select another one
+    if (selectedPaymentMethod?.id === methodId) {
+      const newDefault = updatedMethods.find(method => method.isDefault) || updatedMethods[0];
+      setSelectedPaymentMethod(newDefault);
+    }
+
+    alert('Payment method deleted successfully!');
+  };
+
+  const handleSetDefaultPaymentMethod = (methodId) => {
+    const updatedMethods = paymentMethods.map(method => ({
+      ...method,
+      isDefault: method.id === methodId
+    }));
+    setPaymentMethods(updatedMethods);
+    alert('Default payment method updated!');
+  };
+
   const handleRoomBooking = async () => {
     if (!selectedRoom || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
       alert('Please fill in all required fields');
+      return;
+    }
+
+    if (!selectedPaymentMethod) {
+      alert('Please select a payment method');
       return;
     }
 
@@ -175,7 +320,20 @@ const PatientDashboard = () => {
       const newBooking = await dbService.createRoomBooking(bookingData);
       
       if (newBooking) {
-        alert('Room booked successfully! Your booking is pending confirmation.');
+        // Create payment record
+        const paymentData = {
+          patient_id: user.id,
+          room_booking_id: newBooking.id,
+          amount: totalCost,
+          description: `Room ${selectedRoom.room_number} booking`,
+          payment_method: `${selectedPaymentMethod.brand} ending in ${selectedPaymentMethod.last4}`,
+          status: 'pending',
+          due_date: bookingForm.checkInDate
+        };
+
+        await dbService.createPayment(paymentData);
+        
+        alert(`Room booked successfully! Payment of $${totalCost} will be charged to your ${selectedPaymentMethod.brand} ending in ${selectedPaymentMethod.last4}.`);
         
         // Reset form and go back to browse
         setBookingForm({
@@ -186,9 +344,13 @@ const PatientDashboard = () => {
         setSelectedRoom(null);
         setBookingStep('browse');
         
-        // Reload room bookings
-        const updatedBookings = await dbService.getRoomBookings(user.id, 'patient');
+        // Reload room bookings and payments
+        const [updatedBookings, updatedPayments] = await Promise.all([
+          dbService.getRoomBookings(user.id, 'patient'),
+          dbService.getPayments(user.id, 'patient')
+        ]);
         setRoomBookings(updatedBookings || []);
+        setPayments(updatedPayments || []);
       }
     } catch (error) {
       console.error('Error booking room:', error);
@@ -197,6 +359,196 @@ const PatientDashboard = () => {
       setBookingLoading(false);
     }
   };
+
+  const renderPaymentMethodForm = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Add Payment Method</h3>
+        <button
+          onClick={() => setShowAddPaymentMethod(false)}
+          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        >
+          <XCircle className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Card Number *
+          </label>
+          <input
+            type="text"
+            value={newPaymentMethod.cardNumber}
+            onChange={(e) => {
+              // Format card number with spaces
+              const value = e.target.value.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim();
+              if (value.replace(/\s/g, '').length <= 19) {
+                setNewPaymentMethod({...newPaymentMethod, cardNumber: value});
+              }
+            }}
+            placeholder="1234 5678 9012 3456"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            maxLength="23"
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Month *
+            </label>
+            <select
+              value={newPaymentMethod.expiryMonth}
+              onChange={(e) => setNewPaymentMethod({...newPaymentMethod, expiryMonth: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="">MM</option>
+              {Array.from({length: 12}, (_, i) => (
+                <option key={i + 1} value={String(i + 1).padStart(2, '0')}>
+                  {String(i + 1).padStart(2, '0')}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Year *
+            </label>
+            <select
+              value={newPaymentMethod.expiryYear}
+              onChange={(e) => setNewPaymentMethod({...newPaymentMethod, expiryYear: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="">YYYY</option>
+              {Array.from({length: 10}, (_, i) => (
+                <option key={i} value={new Date().getFullYear() + i}>
+                  {new Date().getFullYear() + i}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              CVV *
+            </label>
+            <input
+              type="text"
+              value={newPaymentMethod.cvv}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '');
+                if (value.length <= 4) {
+                  setNewPaymentMethod({...newPaymentMethod, cvv: value});
+                }
+              }}
+              placeholder="123"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              maxLength="4"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Cardholder Name *
+          </label>
+          <input
+            type="text"
+            value={newPaymentMethod.cardholderName}
+            onChange={(e) => setNewPaymentMethod({...newPaymentMethod, cardholderName: e.target.value})}
+            placeholder="John Doe"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </div>
+
+        <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+          <h4 className="text-md font-medium text-gray-900 dark:text-white mb-4">Billing Address</h4>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Street Address
+              </label>
+              <input
+                type="text"
+                value={newPaymentMethod.billingAddress.street}
+                onChange={(e) => setNewPaymentMethod({
+                  ...newPaymentMethod,
+                  billingAddress: {...newPaymentMethod.billingAddress, street: e.target.value}
+                })}
+                placeholder="123 Main St"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  City
+                </label>
+                <input
+                  type="text"
+                  value={newPaymentMethod.billingAddress.city}
+                  onChange={(e) => setNewPaymentMethod({
+                    ...newPaymentMethod,
+                    billingAddress: {...newPaymentMethod.billingAddress, city: e.target.value}
+                  })}
+                  placeholder="New York"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  State
+                </label>
+                <input
+                  type="text"
+                  value={newPaymentMethod.billingAddress.state}
+                  onChange={(e) => setNewPaymentMethod({
+                    ...newPaymentMethod,
+                    billingAddress: {...newPaymentMethod.billingAddress, state: e.target.value}
+                  })}
+                  placeholder="NY"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                ZIP Code
+              </label>
+              <input
+                type="text"
+                value={newPaymentMethod.billingAddress.zipCode}
+                onChange={(e) => setNewPaymentMethod({
+                  ...newPaymentMethod,
+                  billingAddress: {...newPaymentMethod.billingAddress, zipCode: e.target.value}
+                })}
+                placeholder="10001"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex space-x-3 pt-4">
+          <button
+            onClick={handleAddPaymentMethod}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+          >
+            Add Payment Method
+          </button>
+          <button
+            onClick={() => setShowAddPaymentMethod(false)}
+            className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderDashboardOverview = () => (
     <div className="space-y-6">
@@ -377,90 +729,190 @@ const PatientDashboard = () => {
             </div>
 
             {/* Booking Form */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Booking Details</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Check-in Date *
-                  </label>
-                  <input
-                    type="date"
-                    value={bookingForm.checkInDate}
-                    onChange={(e) => setBookingForm({...bookingForm, checkInDate: e.target.value})}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    required
-                  />
-                </div>
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Booking Details</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Check-in Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={bookingForm.checkInDate}
+                      onChange={(e) => setBookingForm({...bookingForm, checkInDate: e.target.value})}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Check-out Date *
-                  </label>
-                  <input
-                    type="date"
-                    value={bookingForm.checkOutDate}
-                    onChange={(e) => setBookingForm({...bookingForm, checkOutDate: e.target.value})}
-                    min={bookingForm.checkInDate || new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    required
-                  />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Check-out Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={bookingForm.checkOutDate}
+                      onChange={(e) => setBookingForm({...bookingForm, checkOutDate: e.target.value})}
+                      min={bookingForm.checkInDate || new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Special Requirements
-                  </label>
-                  <textarea
-                    value={bookingForm.specialRequirements}
-                    onChange={(e) => setBookingForm({...bookingForm, specialRequirements: e.target.value})}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-                    placeholder="Any special requirements or requests..."
-                  />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Special Requirements
+                    </label>
+                    <textarea
+                      value={bookingForm.specialRequirements}
+                      onChange={(e) => setBookingForm({...bookingForm, specialRequirements: e.target.value})}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                      placeholder="Any special requirements or requests..."
+                    />
+                  </div>
 
-                {bookingForm.checkInDate && bookingForm.checkOutDate && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">Booking Summary</h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Duration:</span>
-                        <span className="text-gray-900 dark:text-white">
-                          {Math.ceil((new Date(bookingForm.checkOutDate) - new Date(bookingForm.checkInDate)) / (1000 * 60 * 60 * 24))} days
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Daily Rate:</span>
-                        <span className="text-gray-900 dark:text-white">${selectedRoom.daily_rate}</span>
-                      </div>
-                      <div className="flex justify-between font-medium text-lg border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
-                        <span className="text-gray-900 dark:text-white">Total Cost:</span>
-                        <span className="text-blue-600 dark:text-blue-400">${calculateTotalCost()}</span>
+                  {bookingForm.checkInDate && bookingForm.checkOutDate && (
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">Booking Summary</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Duration:</span>
+                          <span className="text-gray-900 dark:text-white">
+                            {Math.ceil((new Date(bookingForm.checkOutDate) - new Date(bookingForm.checkInDate)) / (1000 * 60 * 60 * 24))} days
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Daily Rate:</span>
+                          <span className="text-gray-900 dark:text-white">${selectedRoom.daily_rate}</span>
+                        </div>
+                        <div className="flex justify-between font-medium text-lg border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
+                          <span className="text-gray-900 dark:text-white">Total Cost:</span>
+                          <span className="text-blue-600 dark:text-blue-400">${calculateTotalCost()}</span>
+                        </div>
                       </div>
                     </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Payment Method Selection */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Payment Method</h3>
+                  <button
+                    onClick={() => setShowAddPaymentMethod(true)}
+                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm flex items-center"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add New
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {paymentMethods.map((method) => (
+                    <div
+                      key={method.id}
+                      className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                        selectedPaymentMethod?.id === method.id
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                      }`}
+                      onClick={() => setSelectedPaymentMethod(method)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <CreditCard className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              {method.brand} •••• {method.last4}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              Expires {method.expiryMonth}/{method.expiryYear}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {method.isDefault && (
+                            <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded text-xs font-medium">
+                              Default
+                            </span>
+                          )}
+                          <div className="flex space-x-1">
+                            {!method.isDefault && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSetDefaultPaymentMethod(method.id);
+                                }}
+                                className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                                title="Set as default"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePaymentMethod(method.id);
+                              }}
+                              className="text-gray-400 hover:text-red-600"
+                              title="Delete payment method"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {paymentMethods.length === 0 && (
+                  <div className="text-center py-4">
+                    <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">No payment methods added</p>
+                    <button
+                      onClick={() => setShowAddPaymentMethod(true)}
+                      className="mt-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
+                    >
+                      Add your first payment method
+                    </button>
                   </div>
                 )}
-
-                <button
-                  onClick={handleRoomBooking}
-                  disabled={bookingLoading || !bookingForm.checkInDate || !bookingForm.checkOutDate}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center"
-                >
-                  {bookingLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Booking Room...
-                    </>
-                  ) : (
-                    'Book Room'
-                  )}
-                </button>
               </div>
+
+              <button
+                onClick={handleRoomBooking}
+                disabled={bookingLoading || !bookingForm.checkInDate || !bookingForm.checkOutDate || !selectedPaymentMethod}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center"
+              >
+                {bookingLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Processing Payment...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Book Room & Pay ${calculateTotalCost()}
+                  </>
+                )}
+              </button>
             </div>
           </div>
+
+          {/* Add Payment Method Modal */}
+          {showAddPaymentMethod && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                {renderPaymentMethodForm()}
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -833,50 +1285,128 @@ const PatientDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Payments & Billing</h2>
+        <button
+          onClick={() => setShowAddPaymentMethod(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Payment Method
+        </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <div className="space-y-4">
-            {payments.map((payment) => (
-              <div key={payment.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {payment.description}
-                      </h3>
-                      <span className="text-sm text-blue-600 dark:text-blue-400">
-                        {payment.invoice_number}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                      <span>Amount: ${payment.amount}</span>
-                      <span>Due: {formatDate(payment.due_date)}</span>
-                      {payment.payment_method && <span>Method: {payment.payment_method}</span>}
-                    </div>
+      {/* Payment Methods Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment Methods</h3>
+        <div className="space-y-3">
+          {paymentMethods.map((method) => (
+            <div key={method.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <CreditCard className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {method.brand} •••• {method.last4}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Expires {method.expiryMonth}/{method.expiryYear}
+                    </p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    payment.status === 'paid' 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : payment.status === 'pending'
-                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                  }`}>
-                    {payment.status}
-                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {method.isDefault && (
+                    <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded text-xs font-medium">
+                      Default
+                    </span>
+                  )}
+                  <div className="flex space-x-1">
+                    {!method.isDefault && (
+                      <button
+                        onClick={() => handleSetDefaultPaymentMethod(method.id)}
+                        className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                        title="Set as default"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeletePaymentMethod(method.id)}
+                      className="text-gray-400 hover:text-red-600"
+                      title="Delete payment method"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))}
-            {payments.length === 0 && (
-              <div className="text-center py-8">
-                <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No payment records</p>
-              </div>
-            )}
-          </div>
+            </div>
+          ))}
+          
+          {paymentMethods.length === 0 && (
+            <div className="text-center py-8">
+              <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400">No payment methods added</p>
+              <button
+                onClick={() => setShowAddPaymentMethod(true)}
+                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+              >
+                Add Your First Payment Method
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Payment History */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment History</h3>
+        <div className="space-y-4">
+          {payments.map((payment) => (
+            <div key={payment.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {payment.description}
+                    </h3>
+                    <span className="text-sm text-blue-600 dark:text-blue-400">
+                      {payment.invoice_number}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                    <span>Amount: ${payment.amount}</span>
+                    <span>Due: {formatDate(payment.due_date)}</span>
+                    {payment.payment_method && <span>Method: {payment.payment_method}</span>}
+                  </div>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  payment.status === 'paid' 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : payment.status === 'pending'
+                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                }`}>
+                  {payment.status}
+                </span>
+              </div>
+            </div>
+          ))}
+          {payments.length === 0 && (
+            <div className="text-center py-8">
+              <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400">No payment records</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Add Payment Method Modal */}
+      {showAddPaymentMethod && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {renderPaymentMethodForm()}
+          </div>
+        </div>
+      )}
     </div>
   );
 
