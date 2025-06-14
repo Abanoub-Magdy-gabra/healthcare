@@ -18,14 +18,18 @@ export const dbService = {
         .from('profiles')
         .select('*')
         .eq('id', userId)
+        .single()
       
       if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows returned - profile doesn't exist
+          return null;
+        }
         console.error('Error fetching profile:', error)
         throw error
       }
       
-      // Return the first profile or null if none found
-      return data && data.length > 0 ? data[0] : null
+      return data
     } catch (error) {
       console.error('Profile fetch error:', error)
       throw error
@@ -54,35 +58,23 @@ export const dbService = {
 
   async createProfile(profile) {
     try {
-      console.log('🔧 dbService.createProfile called with:', profile);
-      console.log('🎭 Role being inserted:', profile.role);
+      console.log('Creating profile in database with data:', profile);
       
-      // Use direct Supabase insert with explicit role
       const { data, error } = await supabase
         .from('profiles')
-        .insert({
-          id: profile.id,
-          email: profile.email,
-          full_name: profile.full_name,
-          role: profile.role, // Explicitly set the role
-          phone: profile.phone,
-          date_of_birth: profile.date_of_birth,
-          address: profile.address
-        })
+        .insert(profile)
         .select()
         .single()
       
       if (error) {
-        console.error('❌ Error creating profile:', error)
+        console.error('Error creating profile:', error)
         throw error
       }
       
-      console.log('✅ Profile created in database:', data);
-      console.log('🎭 Final role in database:', data.role);
-      
+      console.log('Profile created successfully in database:', data);
       return data
     } catch (error) {
-      console.error('❌ Profile creation error:', error)
+      console.error('Profile creation error:', error)
       throw error
     }
   },
