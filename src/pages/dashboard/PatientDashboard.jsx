@@ -14,25 +14,30 @@ import {
   Plus,
   Edit,
   Eye,
+  Trash2,
   Phone,
   Mail,
   MapPin,
+  Clock,
   CheckCircle,
   AlertCircle,
   XCircle,
-  Clock,
-  Heart,
-  Stethoscope,
-  ArrowLeft,
-  Wifi,
-  Tv,
-  Car,
-  Coffee,
-  Shield,
   Search,
   Filter,
+  Send,
+  Heart,
+  Stethoscope,
+  Home,
+  DollarSign,
+  Calendar as CalendarIcon,
+  Star,
+  Download,
+  Upload,
+  Bell,
+  Shield,
   Lock,
-  Trash2
+  Save,
+  X
 } from 'lucide-react';
 
 const PatientDashboard = () => {
@@ -43,47 +48,15 @@ const PatientDashboard = () => {
   const [messages, setMessages] = useState([]);
   const [payments, setPayments] = useState([]);
   const [roomBookings, setRoomBookings] = useState([]);
+  const [nurseRequests, setNurseRequests] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(false);
-  
-  // Room booking states
-  const [selectedRoom, setSelectedRoom] = useState(null);
-  const [bookingStep, setBookingStep] = useState('browse'); // 'browse', 'book', 'payment'
-  const [bookingForm, setBookingForm] = useState({
-    checkInDate: '',
-    checkOutDate: '',
-    specialRequirements: ''
-  });
-  const [bookingLoading, setBookingLoading] = useState(false);
 
   // Payment method states
-  const [paymentMethods, setPaymentMethods] = useState([
-    {
-      id: 1,
-      type: 'credit_card',
-      name: 'Credit Card',
-      last4: '4242',
-      brand: 'Visa',
-      expiryMonth: '12',
-      expiryYear: '2025',
-      isDefault: true
-    },
-    {
-      id: 2,
-      type: 'credit_card',
-      name: 'Credit Card',
-      last4: '5555',
-      brand: 'Mastercard',
-      expiryMonth: '08',
-      expiryYear: '2026',
-      isDefault: false
-    }
-  ]);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
   const [newPaymentMethod, setNewPaymentMethod] = useState({
-    type: 'credit_card',
     cardNumber: '',
     expiryMonth: '',
     expiryYear: '',
@@ -94,8 +67,52 @@ const PatientDashboard = () => {
       city: '',
       state: '',
       zipCode: '',
-      country: 'US'
-    }
+      country: 'Egypt'
+    },
+    isDefault: false
+  });
+
+  // Room booking states
+  const [showRoomBooking, setShowRoomBooking] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [bookingData, setBookingData] = useState({
+    checkInDate: '',
+    checkOutDate: '',
+    specialRequirements: '',
+    paymentMethodId: ''
+  });
+
+  // Message states
+  const [showNewMessage, setShowNewMessage] = useState(false);
+  const [newMessage, setNewMessage] = useState({
+    recipientId: '',
+    subject: '',
+    content: '',
+    priority: 'medium'
+  });
+
+  // Appointment states
+  const [showNewAppointment, setShowNewAppointment] = useState(false);
+  const [newAppointment, setNewAppointment] = useState({
+    doctorId: '',
+    appointmentDate: '',
+    appointmentTime: '',
+    appointmentType: '',
+    notes: ''
+  });
+
+  // Nurse request states
+  const [showNurseRequest, setShowNurseRequest] = useState(false);
+  const [newNurseRequest, setNewNurseRequest] = useState({
+    requestType: '',
+    description: '',
+    address: '',
+    requestedDate: '',
+    requestedTime: '',
+    durationHours: 2,
+    priority: 'medium',
+    services: [],
+    specialInstructions: ''
   });
 
   useEffect(() => {
@@ -103,14 +120,6 @@ const PatientDashboard = () => {
       loadPatientData();
     }
   }, [user]);
-
-  useEffect(() => {
-    // Set default payment method when payment methods are loaded
-    if (paymentMethods.length > 0 && !selectedPaymentMethod) {
-      const defaultMethod = paymentMethods.find(method => method.isDefault) || paymentMethods[0];
-      setSelectedPaymentMethod(defaultMethod);
-    }
-  }, [paymentMethods, selectedPaymentMethod]);
 
   const loadPatientData = async () => {
     setLoading(true);
@@ -121,6 +130,7 @@ const PatientDashboard = () => {
         messagesData,
         paymentsData,
         roomBookingsData,
+        nurseRequestsData,
         roomsData,
         statsData
       ] = await Promise.all([
@@ -129,6 +139,7 @@ const PatientDashboard = () => {
         dbService.getMessages(user.id),
         dbService.getPayments(user.id, 'patient'),
         dbService.getRoomBookings(user.id, 'patient'),
+        dbService.getNurseRequests(user.id, 'patient'),
         dbService.getRooms(),
         dbService.getDashboardStats(user.id, 'patient')
       ]);
@@ -138,8 +149,13 @@ const PatientDashboard = () => {
       setMessages(messagesData || []);
       setPayments(paymentsData || []);
       setRoomBookings(roomBookingsData || []);
+      setNurseRequests(nurseRequestsData || []);
       setRooms(roomsData || []);
       setStats(statsData || {});
+
+      // Load saved payment methods from localStorage
+      const savedPaymentMethods = JSON.parse(localStorage.getItem(`paymentMethods_${user.id}`) || '[]');
+      setPaymentMethods(savedPaymentMethods);
 
     } catch (error) {
       console.error('Error loading patient data:', error);
@@ -150,21 +166,23 @@ const PatientDashboard = () => {
 
   const handleNavigation = (section) => {
     setActiveCase(section);
-    // Reset room booking state when navigating away
-    if (section !== 'room-booking') {
-      setBookingStep('browse');
-      setSelectedRoom(null);
-      setBookingForm({
-        checkInDate: '',
-        checkOutDate: '',
-        specialRequirements: ''
-      });
-      setSelectedPaymentMethod(paymentMethods.find(method => method.isDefault) || paymentMethods[0]);
-    }
+  };
+
+  // Currency formatting function for EGP
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('ar-EG', {
+      style: 'currency',
+      currency: 'EGP',
+      minimumFractionDigits: 2
+    }).format(amount);
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   const formatTime = (timeString) => {
@@ -174,17 +192,20 @@ const PatientDashboard = () => {
     });
   };
 
-  const calculateTotalCost = () => {
-    if (!selectedRoom || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
-      return 0;
-    }
+  // Payment method functions
+  const detectCardBrand = (cardNumber) => {
+    const number = cardNumber.replace(/\s/g, '');
+    if (number.match(/^4/)) return 'Visa';
+    if (number.match(/^5[1-5]/)) return 'Mastercard';
+    if (number.match(/^3[47]/)) return 'American Express';
+    if (number.match(/^6/)) return 'Discover';
+    return 'Unknown';
+  };
 
-    const checkIn = new Date(bookingForm.checkInDate);
-    const checkOut = new Date(bookingForm.checkOutDate);
-    const diffTime = Math.abs(checkOut - checkIn);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return diffDays * parseFloat(selectedRoom.daily_rate);
+  const formatCardNumber = (value) => {
+    const number = value.replace(/\s/g, '');
+    const formatted = number.replace(/(.{4})/g, '$1 ');
+    return formatted.trim();
   };
 
   const handleAddPaymentMethod = () => {
@@ -195,42 +216,33 @@ const PatientDashboard = () => {
       return;
     }
 
-    // Validate card number (basic validation)
-    const cardNumber = newPaymentMethod.cardNumber.replace(/\s/g, '');
-    if (cardNumber.length < 13 || cardNumber.length > 19) {
-      alert('Please enter a valid card number');
-      return;
-    }
-
-    // Determine card brand
-    let brand = 'Unknown';
-    if (cardNumber.startsWith('4')) brand = 'Visa';
-    else if (cardNumber.startsWith('5') || cardNumber.startsWith('2')) brand = 'Mastercard';
-    else if (cardNumber.startsWith('3')) brand = 'American Express';
-
-    const newMethod = {
-      id: Date.now(),
-      type: 'credit_card',
-      name: 'Credit Card',
-      last4: cardNumber.slice(-4),
-      brand: brand,
-      expiryMonth: newPaymentMethod.expiryMonth,
-      expiryYear: newPaymentMethod.expiryYear,
-      cardholderName: newPaymentMethod.cardholderName,
-      billingAddress: newPaymentMethod.billingAddress,
-      isDefault: paymentMethods.length === 0
+    const paymentMethod = {
+      id: Date.now().toString(),
+      ...newPaymentMethod,
+      cardBrand: detectCardBrand(newPaymentMethod.cardNumber),
+      lastFour: newPaymentMethod.cardNumber.slice(-4),
+      createdAt: new Date().toISOString()
     };
 
-    setPaymentMethods([...paymentMethods, newMethod]);
-    
-    // Set as selected if it's the first payment method
-    if (paymentMethods.length === 0) {
-      setSelectedPaymentMethod(newMethod);
+    // If this is the first payment method or marked as default, make it default
+    if (paymentMethods.length === 0 || newPaymentMethod.isDefault) {
+      // Remove default from other methods
+      const updatedMethods = paymentMethods.map(method => ({ ...method, isDefault: false }));
+      paymentMethod.isDefault = true;
+      setPaymentMethods([...updatedMethods, paymentMethod]);
+    } else {
+      setPaymentMethods([...paymentMethods, paymentMethod]);
     }
+
+    // Save to localStorage
+    const updatedMethods = paymentMethods.length === 0 || newPaymentMethod.isDefault 
+      ? [...paymentMethods.map(method => ({ ...method, isDefault: false })), { ...paymentMethod, isDefault: true }]
+      : [...paymentMethods, paymentMethod];
+    
+    localStorage.setItem(`paymentMethods_${user.id}`, JSON.stringify(updatedMethods));
 
     // Reset form
     setNewPaymentMethod({
-      type: 'credit_card',
       cardNumber: '',
       expiryMonth: '',
       expiryYear: '',
@@ -241,8 +253,9 @@ const PatientDashboard = () => {
         city: '',
         state: '',
         zipCode: '',
-        country: 'US'
-      }
+        country: 'Egypt'
+      },
+      isDefault: false
     });
     setShowAddPaymentMethod(false);
     alert('Payment method added successfully!');
@@ -250,19 +263,20 @@ const PatientDashboard = () => {
 
   const handleDeletePaymentMethod = (methodId) => {
     if (paymentMethods.length === 1) {
-      alert('You must have at least one payment method');
+      alert('Cannot delete the last payment method');
       return;
     }
 
     const updatedMethods = paymentMethods.filter(method => method.id !== methodId);
-    setPaymentMethods(updatedMethods);
-
-    // If deleted method was selected, select another one
-    if (selectedPaymentMethod?.id === methodId) {
-      const newDefault = updatedMethods.find(method => method.isDefault) || updatedMethods[0];
-      setSelectedPaymentMethod(newDefault);
+    
+    // If we deleted the default method, make the first remaining method default
+    const deletedMethod = paymentMethods.find(method => method.id === methodId);
+    if (deletedMethod?.isDefault && updatedMethods.length > 0) {
+      updatedMethods[0].isDefault = true;
     }
 
+    setPaymentMethods(updatedMethods);
+    localStorage.setItem(`paymentMethods_${user.id}`, JSON.stringify(updatedMethods));
     alert('Payment method deleted successfully!');
   };
 
@@ -272,283 +286,221 @@ const PatientDashboard = () => {
       isDefault: method.id === methodId
     }));
     setPaymentMethods(updatedMethods);
+    localStorage.setItem(`paymentMethods_${user.id}`, JSON.stringify(updatedMethods));
     alert('Default payment method updated!');
   };
 
+  // Room booking functions
+  const calculateTotalCost = () => {
+    if (!selectedRoom || !bookingData.checkInDate || !bookingData.checkOutDate) {
+      return 0;
+    }
+
+    const checkIn = new Date(bookingData.checkInDate);
+    const checkOut = new Date(bookingData.checkOutDate);
+    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    
+    return nights * selectedRoom.daily_rate;
+  };
+
   const handleRoomBooking = async () => {
-    if (!selectedRoom || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
+    if (!selectedRoom || !bookingData.checkInDate || !bookingData.checkOutDate) {
       alert('Please fill in all required fields');
       return;
     }
 
-    if (!selectedPaymentMethod) {
+    if (!bookingData.paymentMethodId) {
       alert('Please select a payment method');
       return;
     }
 
-    const checkIn = new Date(bookingForm.checkInDate);
-    const checkOut = new Date(bookingForm.checkOutDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (checkIn < today) {
-      alert('Check-in date cannot be in the past');
-      return;
-    }
-
-    if (checkOut <= checkIn) {
-      alert('Check-out date must be after check-in date');
-      return;
-    }
-
-    setBookingLoading(true);
+    const totalCost = calculateTotalCost();
+    
     try {
-      const totalCost = calculateTotalCost();
-      
-      const bookingData = {
+      setLoading(true);
+
+      // Create room booking
+      const booking = {
         patient_id: user.id,
         room_id: selectedRoom.id,
-        check_in_date: bookingForm.checkInDate,
-        check_out_date: bookingForm.checkOutDate,
+        check_in_date: bookingData.checkInDate,
+        check_out_date: bookingData.checkOutDate,
         total_cost: totalCost,
-        special_requirements: bookingForm.specialRequirements || null,
+        special_requirements: bookingData.specialRequirements,
         status: 'pending'
       };
 
-      console.log('Booking room with data:', bookingData);
+      const newBooking = await dbService.createRoomBooking(booking);
 
-      const newBooking = await dbService.createRoomBooking(bookingData);
-      
-      if (newBooking) {
-        // Create payment record
-        const paymentData = {
-          patient_id: user.id,
-          room_booking_id: newBooking.id,
-          amount: totalCost,
-          description: `Room ${selectedRoom.room_number} booking`,
-          payment_method: `${selectedPaymentMethod.brand} ending in ${selectedPaymentMethod.last4}`,
-          status: 'pending',
-          due_date: bookingForm.checkInDate
-        };
+      // Create payment record
+      const payment = {
+        patient_id: user.id,
+        room_booking_id: newBooking.id,
+        amount: totalCost,
+        description: `Room booking for ${selectedRoom.room_number} (${formatDate(bookingData.checkInDate)} - ${formatDate(bookingData.checkOutDate)})`,
+        payment_method: paymentMethods.find(method => method.id === bookingData.paymentMethodId)?.cardBrand + ' ending in ' + paymentMethods.find(method => method.id === bookingData.paymentMethodId)?.lastFour,
+        status: 'paid',
+        paid_date: new Date().toISOString().split('T')[0]
+      };
 
-        await dbService.createPayment(paymentData);
-        
-        alert(`Room booked successfully! Payment of $${totalCost} will be charged to your ${selectedPaymentMethod.brand} ending in ${selectedPaymentMethod.last4}.`);
-        
-        // Reset form and go back to browse
-        setBookingForm({
-          checkInDate: '',
-          checkOutDate: '',
-          specialRequirements: ''
-        });
-        setSelectedRoom(null);
-        setBookingStep('browse');
-        
-        // Reload room bookings and payments
-        const [updatedBookings, updatedPayments] = await Promise.all([
-          dbService.getRoomBookings(user.id, 'patient'),
-          dbService.getPayments(user.id, 'patient')
-        ]);
-        setRoomBookings(updatedBookings || []);
-        setPayments(updatedPayments || []);
-      }
+      await dbService.createPayment(payment);
+
+      // Refresh data
+      await loadPatientData();
+
+      // Reset form
+      setSelectedRoom(null);
+      setBookingData({
+        checkInDate: '',
+        checkOutDate: '',
+        specialRequirements: '',
+        paymentMethodId: ''
+      });
+      setShowRoomBooking(false);
+
+      alert(`Room booked successfully! Total cost: ${formatCurrency(totalCost)}`);
+
     } catch (error) {
       console.error('Error booking room:', error);
       alert('Failed to book room. Please try again.');
     } finally {
-      setBookingLoading(false);
+      setLoading(false);
     }
   };
 
-  const renderPaymentMethodForm = () => (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Add Payment Method</h3>
-        <button
-          onClick={() => setShowAddPaymentMethod(false)}
-          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-        >
-          <XCircle className="h-5 w-5" />
-        </button>
-      </div>
+  // Message functions
+  const handleSendMessage = async () => {
+    if (!newMessage.recipientId || !newMessage.subject || !newMessage.content) {
+      alert('Please fill in all required fields');
+      return;
+    }
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Card Number *
-          </label>
-          <input
-            type="text"
-            value={newPaymentMethod.cardNumber}
-            onChange={(e) => {
-              // Format card number with spaces
-              const value = e.target.value.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim();
-              if (value.replace(/\s/g, '').length <= 19) {
-                setNewPaymentMethod({...newPaymentMethod, cardNumber: value});
-              }
-            }}
-            placeholder="1234 5678 9012 3456"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            maxLength="23"
-          />
-        </div>
+    try {
+      setLoading(true);
 
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Month *
-            </label>
-            <select
-              value={newPaymentMethod.expiryMonth}
-              onChange={(e) => setNewPaymentMethod({...newPaymentMethod, expiryMonth: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="">MM</option>
-              {Array.from({length: 12}, (_, i) => (
-                <option key={i + 1} value={String(i + 1).padStart(2, '0')}>
-                  {String(i + 1).padStart(2, '0')}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Year *
-            </label>
-            <select
-              value={newPaymentMethod.expiryYear}
-              onChange={(e) => setNewPaymentMethod({...newPaymentMethod, expiryYear: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="">YYYY</option>
-              {Array.from({length: 10}, (_, i) => (
-                <option key={i} value={new Date().getFullYear() + i}>
-                  {new Date().getFullYear() + i}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              CVV *
-            </label>
-            <input
-              type="text"
-              value={newPaymentMethod.cvv}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, '');
-                if (value.length <= 4) {
-                  setNewPaymentMethod({...newPaymentMethod, cvv: value});
-                }
-              }}
-              placeholder="123"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              maxLength="4"
-            />
-          </div>
-        </div>
+      const message = {
+        sender_id: user.id,
+        recipient_id: newMessage.recipientId,
+        subject: newMessage.subject,
+        content: newMessage.content,
+        priority: newMessage.priority
+      };
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Cardholder Name *
-          </label>
-          <input
-            type="text"
-            value={newPaymentMethod.cardholderName}
-            onChange={(e) => setNewPaymentMethod({...newPaymentMethod, cardholderName: e.target.value})}
-            placeholder="John Doe"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          />
-        </div>
+      await dbService.createMessage(message);
+      await loadPatientData();
 
-        <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
-          <h4 className="text-md font-medium text-gray-900 dark:text-white mb-4">Billing Address</h4>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Street Address
-              </label>
-              <input
-                type="text"
-                value={newPaymentMethod.billingAddress.street}
-                onChange={(e) => setNewPaymentMethod({
-                  ...newPaymentMethod,
-                  billingAddress: {...newPaymentMethod.billingAddress, street: e.target.value}
-                })}
-                placeholder="123 Main St"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
+      setNewMessage({
+        recipientId: '',
+        subject: '',
+        content: '',
+        priority: 'medium'
+      });
+      setShowNewMessage(false);
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  City
-                </label>
-                <input
-                  type="text"
-                  value={newPaymentMethod.billingAddress.city}
-                  onChange={(e) => setNewPaymentMethod({
-                    ...newPaymentMethod,
-                    billingAddress: {...newPaymentMethod.billingAddress, city: e.target.value}
-                  })}
-                  placeholder="New York"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  State
-                </label>
-                <input
-                  type="text"
-                  value={newPaymentMethod.billingAddress.state}
-                  onChange={(e) => setNewPaymentMethod({
-                    ...newPaymentMethod,
-                    billingAddress: {...newPaymentMethod.billingAddress, state: e.target.value}
-                  })}
-                  placeholder="NY"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-            </div>
+      alert('Message sent successfully!');
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                ZIP Code
-              </label>
-              <input
-                type="text"
-                value={newPaymentMethod.billingAddress.zipCode}
-                onChange={(e) => setNewPaymentMethod({
-                  ...newPaymentMethod,
-                  billingAddress: {...newPaymentMethod.billingAddress, zipCode: e.target.value}
-                })}
-                placeholder="10001"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
-          </div>
-        </div>
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert('Failed to send message. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        <div className="flex space-x-3 pt-4">
-          <button
-            onClick={handleAddPaymentMethod}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
-          >
-            Add Payment Method
-          </button>
-          <button
-            onClick={() => setShowAddPaymentMethod(false)}
-            className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  // Appointment functions
+  const handleBookAppointment = async () => {
+    if (!newAppointment.doctorId || !newAppointment.appointmentDate || 
+        !newAppointment.appointmentTime || !newAppointment.appointmentType) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const appointment = {
+        patient_id: user.id,
+        doctor_id: newAppointment.doctorId,
+        appointment_date: newAppointment.appointmentDate,
+        appointment_time: newAppointment.appointmentTime,
+        appointment_type: newAppointment.appointmentType,
+        notes: newAppointment.notes,
+        status: 'pending'
+      };
+
+      await dbService.createAppointment(appointment);
+      await loadPatientData();
+
+      setNewAppointment({
+        doctorId: '',
+        appointmentDate: '',
+        appointmentTime: '',
+        appointmentType: '',
+        notes: ''
+      });
+      setShowNewAppointment(false);
+
+      alert('Appointment booked successfully!');
+
+    } catch (error) {
+      console.error('Error booking appointment:', error);
+      alert('Failed to book appointment. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Nurse request functions
+  const handleNurseRequest = async () => {
+    if (!newNurseRequest.requestType || !newNurseRequest.description || 
+        !newNurseRequest.address || !newNurseRequest.requestedDate || 
+        !newNurseRequest.requestedTime) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const request = {
+        patient_id: user.id,
+        request_type: newNurseRequest.requestType,
+        description: newNurseRequest.description,
+        address: newNurseRequest.address,
+        requested_date: newNurseRequest.requestedDate,
+        requested_time: newNurseRequest.requestedTime,
+        duration_hours: newNurseRequest.durationHours,
+        priority: newNurseRequest.priority,
+        services: newNurseRequest.services,
+        special_instructions: newNurseRequest.specialInstructions,
+        status: 'pending'
+      };
+
+      await dbService.createNurseRequest(request);
+      await loadPatientData();
+
+      setNewNurseRequest({
+        requestType: '',
+        description: '',
+        address: '',
+        requestedDate: '',
+        requestedTime: '',
+        durationHours: 2,
+        priority: 'medium',
+        services: [],
+        specialInstructions: ''
+      });
+      setShowNurseRequest(false);
+
+      alert('Nurse request submitted successfully!');
+
+    } catch (error) {
+      console.error('Error submitting nurse request:', error);
+      alert('Failed to submit nurse request. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderDashboardOverview = () => (
     <div className="space-y-6">
@@ -604,15 +556,14 @@ const PatientDashboard = () => {
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Upcoming Appointments</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Appointments</h3>
           <div className="space-y-3">
-            {appointments
-              .filter(appointment => new Date(appointment.appointment_date) >= new Date())
-              .slice(0, 3)
-              .map((appointment) => (
+            {appointments.slice(0, 3).map((appointment) => (
               <div key={appointment.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">Dr. {appointment.doctor?.full_name}</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    Dr. {appointment.doctor?.full_name}
+                  </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     {formatDate(appointment.appointment_date)} at {formatTime(appointment.appointment_time)}
                   </p>
@@ -626,9 +577,9 @@ const PatientDashboard = () => {
                 </span>
               </div>
             ))}
-            {appointments.filter(a => new Date(a.appointment_date) >= new Date()).length === 0 && (
+            {appointments.length === 0 && (
               <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-                No upcoming appointments
+                No appointments scheduled
               </p>
             )}
           </div>
@@ -640,12 +591,21 @@ const PatientDashboard = () => {
             {messages.slice(0, 3).map((message) => (
               <div key={message.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">{message.sender?.full_name}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{message.subject}</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {message.sender?.full_name}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                    {message.subject}
+                  </p>
                 </div>
-                {!message.is_read && (
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                )}
+                <div className="flex items-center space-x-2">
+                  {!message.is_read && (
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  )}
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {formatDate(message.created_at)}
+                  </span>
+                </div>
               </div>
             ))}
             {messages.length === 0 && (
@@ -659,457 +619,131 @@ const PatientDashboard = () => {
     </div>
   );
 
-  const renderRoomBooking = () => {
-    if (bookingStep === 'book' && selectedRoom) {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => {
-                setBookingStep('browse');
-                setSelectedRoom(null);
-                setBookingForm({
-                  checkInDate: '',
-                  checkOutDate: '',
-                  specialRequirements: ''
-                });
-              }}
-              className="flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Rooms
-            </button>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Book Room {selectedRoom.room_number}</h2>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Room Details */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Room Details</h3>
-              
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Room Number:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{selectedRoom.room_number}</span>
-                </div>
-                
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Room Type:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{selectedRoom.room_type}</span>
-                </div>
-                
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Floor:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{selectedRoom.floor}</span>
-                </div>
-                
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Capacity:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{selectedRoom.capacity} patient(s)</span>
-                </div>
-                
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Daily Rate:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">${selectedRoom.daily_rate}</span>
-                </div>
-
-                {selectedRoom.equipment && selectedRoom.equipment.length > 0 && (
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Equipment:</span>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {selectedRoom.equipment.map((item, index) => (
-                        <span key={index} className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-sm">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Booking Form */}
-            <div className="space-y-6">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Booking Details</h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Check-in Date *
-                    </label>
-                    <input
-                      type="date"
-                      value={bookingForm.checkInDate}
-                      onChange={(e) => setBookingForm({...bookingForm, checkInDate: e.target.value})}
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Check-out Date *
-                    </label>
-                    <input
-                      type="date"
-                      value={bookingForm.checkOutDate}
-                      onChange={(e) => setBookingForm({...bookingForm, checkOutDate: e.target.value})}
-                      min={bookingForm.checkInDate || new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Special Requirements
-                    </label>
-                    <textarea
-                      value={bookingForm.specialRequirements}
-                      onChange={(e) => setBookingForm({...bookingForm, specialRequirements: e.target.value})}
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-                      placeholder="Any special requirements or requests..."
-                    />
-                  </div>
-
-                  {bookingForm.checkInDate && bookingForm.checkOutDate && (
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">Booking Summary</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Duration:</span>
-                          <span className="text-gray-900 dark:text-white">
-                            {Math.ceil((new Date(bookingForm.checkOutDate) - new Date(bookingForm.checkInDate)) / (1000 * 60 * 60 * 24))} days
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Daily Rate:</span>
-                          <span className="text-gray-900 dark:text-white">${selectedRoom.daily_rate}</span>
-                        </div>
-                        <div className="flex justify-between font-medium text-lg border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
-                          <span className="text-gray-900 dark:text-white">Total Cost:</span>
-                          <span className="text-blue-600 dark:text-blue-400">${calculateTotalCost()}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Payment Method Selection */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Payment Method</h3>
-                  <button
-                    onClick={() => setShowAddPaymentMethod(true)}
-                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm flex items-center"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add New
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {paymentMethods.map((method) => (
-                    <div
-                      key={method.id}
-                      className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                        selectedPaymentMethod?.id === method.id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                      }`}
-                      onClick={() => setSelectedPaymentMethod(method)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <CreditCard className="h-5 w-5 text-gray-400" />
-                          <div>
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {method.brand} •••• {method.last4}
-                            </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Expires {method.expiryMonth}/{method.expiryYear}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {method.isDefault && (
-                            <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded text-xs font-medium">
-                              Default
-                            </span>
-                          )}
-                          <div className="flex space-x-1">
-                            {!method.isDefault && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSetDefaultPaymentMethod(method.id);
-                                }}
-                                className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                                title="Set as default"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </button>
-                            )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeletePaymentMethod(method.id);
-                              }}
-                              className="text-gray-400 hover:text-red-600"
-                              title="Delete payment method"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {paymentMethods.length === 0 && (
-                  <div className="text-center py-4">
-                    <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">No payment methods added</p>
-                    <button
-                      onClick={() => setShowAddPaymentMethod(true)}
-                      className="mt-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
-                    >
-                      Add your first payment method
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={handleRoomBooking}
-                disabled={bookingLoading || !bookingForm.checkInDate || !bookingForm.checkOutDate || !selectedPaymentMethod}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center"
-              >
-                {bookingLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Processing Payment...
-                  </>
-                ) : (
-                  <>
-                    <Lock className="h-4 w-4 mr-2" />
-                    Book Room & Pay ${calculateTotalCost()}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Add Payment Method Modal */}
-          {showAddPaymentMethod && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                {renderPaymentMethodForm()}
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Room Booking</h2>
-          <div className="flex space-x-3">
-            <button
-              onClick={() => setBookingStep('browse')}
-              className={`px-4 py-2 rounded-lg ${
-                bookingStep === 'browse'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              Available Rooms
-            </button>
-            <button
-              onClick={() => setBookingStep('my-bookings')}
-              className={`px-4 py-2 rounded-lg ${
-                bookingStep === 'my-bookings'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              My Bookings ({roomBookings.length})
-            </button>
-          </div>
-        </div>
-
-        {bookingStep === 'browse' && (
-          <div>
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Available Rooms</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {rooms
-                  .filter(room => room.status === 'available')
-                  .map((room) => (
-                  <div key={room.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                          Room {room.room_number}
-                        </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {room.room_type} • Floor {room.floor}
-                        </p>
-                      </div>
-                      <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-xs font-medium">
-                        Available
-                      </span>
-                    </div>
-
-                    <div className="space-y-3 mb-4">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Daily Rate:</span>
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">${room.daily_rate}</span>
-                      </div>
-                      
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Capacity:</span>
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">{room.capacity} patient(s)</span>
-                      </div>
-
-                      {room.equipment && room.equipment.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amenities:</p>
-                          <div className="flex flex-wrap gap-2">
-                            {room.equipment.slice(0, 4).map((item, index) => {
-                              const getIcon = (equipment) => {
-                                switch(equipment.toLowerCase()) {
-                                  case 'wifi': return <Wifi className="h-3 w-3" />;
-                                  case 'tv': return <Tv className="h-3 w-3" />;
-                                  case 'parking': return <Car className="h-3 w-3" />;
-                                  case 'coffee': return <Coffee className="h-3 w-3" />;
-                                  default: return <Shield className="h-3 w-3" />;
-                                }
-                              };
-                              
-                              return (
-                                <div key={index} className="flex items-center text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                                  {getIcon(item)}
-                                  <span className="ml-1">{item}</span>
-                                </div>
-                              );
-                            })}
-                            {room.equipment.length > 4 && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                +{room.equipment.length - 4} more
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setSelectedRoom(room);
-                        setBookingStep('book');
-                      }}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                    >
-                      Select Room
-                    </button>
-                  </div>
-                ))}
-              </div>
-              
-              {rooms.filter(room => room.status === 'available').length === 0 && (
-                <div className="text-center py-8">
-                  <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400">No rooms available at the moment</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {bookingStep === 'my-bookings' && (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">My Room Bookings</h3>
-            <div className="space-y-4">
-              {roomBookings.map((booking) => (
-                <div key={booking.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                          Room {booking.room?.room_number}
-                        </h4>
-                        <span className="text-sm text-blue-600 dark:text-blue-400">
-                          {booking.room?.room_type}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 dark:text-gray-400">
-                        <div>
-                          <span className="font-medium">Check-in:</span> {formatDate(booking.check_in_date)}
-                        </div>
-                        <div>
-                          <span className="font-medium">Check-out:</span> {formatDate(booking.check_out_date)}
-                        </div>
-                        <div>
-                          <span className="font-medium">Total Cost:</span> ${booking.total_cost}
-                        </div>
-                      </div>
-                      {booking.special_requirements && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                          <span className="font-medium">Special Requirements:</span> {booking.special_requirements}
-                        </p>
-                      )}
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      booking.status === 'confirmed' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : booking.status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        : booking.status === 'in_progress'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                    }`}>
-                      {booking.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              
-              {roomBookings.length === 0 && (
-                <div className="text-center py-8">
-                  <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400">No room bookings yet</p>
-                  <button
-                    onClick={() => setBookingStep('browse')}
-                    className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
-                  >
-                    Book Your First Room
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const renderAppointments = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Appointments</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <button 
+          onClick={() => setShowNewAppointment(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Book Appointment
         </button>
       </div>
+
+      {/* New Appointment Modal */}
+      {showNewAppointment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Book New Appointment</h3>
+              <button 
+                onClick={() => setShowNewAppointment(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Doctor *
+                </label>
+                <select
+                  value={newAppointment.doctorId}
+                  onChange={(e) => setNewAppointment({...newAppointment, doctorId: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Select a doctor</option>
+                  <option value="doc1">Dr. Sarah Johnson - Cardiologist</option>
+                  <option value="doc2">Dr. Michael Chen - Neurologist</option>
+                  <option value="doc3">Dr. Emily Williams - Pediatrician</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Date *
+                </label>
+                <input
+                  type="date"
+                  value={newAppointment.appointmentDate}
+                  onChange={(e) => setNewAppointment({...newAppointment, appointmentDate: e.target.value})}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Time *
+                </label>
+                <select
+                  value={newAppointment.appointmentTime}
+                  onChange={(e) => setNewAppointment({...newAppointment, appointmentTime: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Select time</option>
+                  <option value="09:00">9:00 AM</option>
+                  <option value="10:00">10:00 AM</option>
+                  <option value="11:00">11:00 AM</option>
+                  <option value="14:00">2:00 PM</option>
+                  <option value="15:00">3:00 PM</option>
+                  <option value="16:00">4:00 PM</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Appointment Type *
+                </label>
+                <select
+                  value={newAppointment.appointmentType}
+                  onChange={(e) => setNewAppointment({...newAppointment, appointmentType: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Select type</option>
+                  <option value="consultation">General Consultation</option>
+                  <option value="follow-up">Follow-up</option>
+                  <option value="emergency">Emergency</option>
+                  <option value="routine-checkup">Routine Checkup</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={newAppointment.notes}
+                  onChange={(e) => setNewAppointment({...newAppointment, notes: e.target.value})}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                  placeholder="Any specific concerns or symptoms..."
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={handleBookAppointment}
+                  disabled={loading}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium"
+                >
+                  {loading ? 'Booking...' : 'Book Appointment'}
+                </button>
+                <button
+                  onClick={() => setShowNewAppointment(false)}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-6">
@@ -1123,7 +757,7 @@ const PatientDashboard = () => {
                         Dr. {appointment.doctor?.full_name}
                       </h3>
                       <span className="text-sm text-blue-600 dark:text-blue-400">
-                        {appointment.appointment_type}
+                        {appointment.doctor?.specialization}
                       </span>
                     </div>
                     <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
@@ -1135,6 +769,7 @@ const PatientDashboard = () => {
                         <Clock className="h-4 w-4 mr-1" />
                         {formatTime(appointment.appointment_time)}
                       </div>
+                      <span>• {appointment.appointment_type}</span>
                     </div>
                     {appointment.notes && (
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
@@ -1142,15 +777,20 @@ const PatientDashboard = () => {
                       </p>
                     )}
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    appointment.status === 'confirmed' 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : appointment.status === 'pending'
-                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                  }`}>
-                    {appointment.status}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      appointment.status === 'confirmed' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : appointment.status === 'pending'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                    }`}>
+                      {appointment.status}
+                    </span>
+                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -1158,6 +798,12 @@ const PatientDashboard = () => {
               <div className="text-center py-8">
                 <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 dark:text-gray-400">No appointments scheduled</p>
+                <button 
+                  onClick={() => setShowNewAppointment(true)}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Book Your First Appointment
+                </button>
               </div>
             )}
           </div>
@@ -1170,10 +816,16 @@ const PatientDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Medical Records</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
-          <Plus className="h-4 w-4 mr-2" />
-          Request Record
-        </button>
+        <div className="flex space-x-3">
+          <button className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg flex items-center">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </button>
+          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Record
+          </button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
@@ -1196,25 +848,29 @@ const PatientDashboard = () => {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex items-center">
-                        <Stethoscope className="h-4 w-4 mr-1" />
-                        Dr. {record.doctor?.full_name}
-                      </div>
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {formatDate(record.record_date)}
-                      </div>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      <span>Dr. {record.doctor?.full_name}</span>
+                      <span>• {formatDate(record.record_date)}</span>
                     </div>
                     {record.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                         {record.description}
                       </p>
                     )}
+                    {record.test_results && (
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        <strong>Test Results:</strong> {JSON.stringify(record.test_results)}
+                      </div>
+                    )}
                   </div>
-                  <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                    <Eye className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300">
+                      <Download className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -1234,11 +890,115 @@ const PatientDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Messages</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <button 
+          onClick={() => setShowNewMessage(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
           <Plus className="h-4 w-4 mr-2" />
           New Message
         </button>
       </div>
+
+      {/* New Message Modal */}
+      {showNewMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">New Message</h3>
+              <button 
+                onClick={() => setShowNewMessage(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  To *
+                </label>
+                <select
+                  value={newMessage.recipientId}
+                  onChange={(e) => setNewMessage({...newMessage, recipientId: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Select recipient</option>
+                  <option value="doc1">Dr. Sarah Johnson</option>
+                  <option value="doc2">Dr. Michael Chen</option>
+                  <option value="nurse1">Nurse Davis</option>
+                  <option value="admin1">Admin Support</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Subject *
+                </label>
+                <input
+                  type="text"
+                  value={newMessage.subject}
+                  onChange={(e) => setNewMessage({...newMessage, subject: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="Message subject"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Priority
+                </label>
+                <select
+                  value={newMessage.priority}
+                  onChange={(e) => setNewMessage({...newMessage, priority: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Message *
+                </label>
+                <textarea
+                  value={newMessage.content}
+                  onChange={(e) => setNewMessage({...newMessage, content: e.target.value})}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                  placeholder="Type your message here..."
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={handleSendMessage}
+                  disabled={loading}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium flex items-center justify-center"
+                >
+                  {loading ? (
+                    'Sending...'
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Message
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowNewMessage(false)}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-6">
@@ -1251,21 +1011,35 @@ const PatientDashboard = () => {
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                         {message.subject}
                       </h3>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        message.priority === 'urgent' 
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                          : message.priority === 'high'
+                          ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                      }`}>
+                        {message.priority}
+                      </span>
                       {!message.is_read && (
-                        <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       )}
                     </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
                       <span>From: {message.sender?.full_name}</span>
-                      <span>{formatDate(message.created_at)}</span>
+                      <span>• {formatDate(message.created_at)}</span>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                       {message.content}
                     </p>
                   </div>
-                  <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                    <Eye className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300">
+                      <Send className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -1273,6 +1047,12 @@ const PatientDashboard = () => {
               <div className="text-center py-8">
                 <Mail className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 dark:text-gray-400">No messages</p>
+                <button 
+                  onClick={() => setShowNewMessage(true)}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Send Your First Message
+                </button>
               </div>
             )}
           </div>
@@ -1285,7 +1065,7 @@ const PatientDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Payments & Billing</h2>
-        <button
+        <button 
           onClick={() => setShowAddPaymentMethod(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
         >
@@ -1297,116 +1077,573 @@ const PatientDashboard = () => {
       {/* Payment Methods Section */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment Methods</h3>
-        <div className="space-y-3">
-          {paymentMethods.map((method) => (
-            <div key={method.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <CreditCard className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {method.brand} •••• {method.last4}
-                    </p>
+        
+        {paymentMethods.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {paymentMethods.map((method) => (
+              <div key={method.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center">
+                        <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {method.cardBrand} •••• {method.lastFour}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {method.cardholderName}
+                        </p>
+                      </div>
+                      {method.isDefault && (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium">
+                          Default
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Expires {method.expiryMonth}/{method.expiryYear}
                     </p>
                   </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {method.isDefault && (
-                    <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded text-xs font-medium">
-                      Default
-                    </span>
-                  )}
-                  <div className="flex space-x-1">
+                  <div className="flex items-center space-x-2">
                     {!method.isDefault && (
                       <button
                         onClick={() => handleSetDefaultPaymentMethod(method.id)}
-                        className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                        title="Set as default"
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
                       >
-                        <CheckCircle className="h-4 w-4" />
+                        Set Default
                       </button>
                     )}
                     <button
                       onClick={() => handleDeletePaymentMethod(method.id)}
-                      className="text-gray-400 hover:text-red-600"
-                      title="Delete payment method"
+                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-          
-          {paymentMethods.length === 0 && (
-            <div className="text-center py-8">
-              <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">No payment methods added</p>
-              <button
-                onClick={() => setShowAddPaymentMethod(true)}
-                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400 mb-4">No payment methods added</p>
+            <button 
+              onClick={() => setShowAddPaymentMethod(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              Add Your First Payment Method
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Add Payment Method Modal */}
+      {showAddPaymentMethod && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Add Payment Method</h3>
+              <button 
+                onClick={() => setShowAddPaymentMethod(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
-                Add Your First Payment Method
+                <X className="h-5 w-5" />
               </button>
             </div>
-          )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Card Number *
+                </label>
+                <input
+                  type="text"
+                  value={formatCardNumber(newPaymentMethod.cardNumber)}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\s/g, '');
+                    if (value.length <= 16) {
+                      setNewPaymentMethod({...newPaymentMethod, cardNumber: value});
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="1234 5678 9012 3456"
+                  maxLength={19}
+                />
+                {newPaymentMethod.cardNumber && (
+                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                    {detectCardBrand(newPaymentMethod.cardNumber)}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Expiry Month *
+                  </label>
+                  <select
+                    value={newPaymentMethod.expiryMonth}
+                    onChange={(e) => setNewPaymentMethod({...newPaymentMethod, expiryMonth: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="">Month</option>
+                    {Array.from({length: 12}, (_, i) => (
+                      <option key={i + 1} value={String(i + 1).padStart(2, '0')}>
+                        {String(i + 1).padStart(2, '0')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Expiry Year *
+                  </label>
+                  <select
+                    value={newPaymentMethod.expiryYear}
+                    onChange={(e) => setNewPaymentMethod({...newPaymentMethod, expiryYear: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="">Year</option>
+                    {Array.from({length: 10}, (_, i) => (
+                      <option key={i} value={new Date().getFullYear() + i}>
+                        {new Date().getFullYear() + i}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  CVV *
+                </label>
+                <input
+                  type="text"
+                  value={newPaymentMethod.cvv}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '');
+                    if (value.length <= 4) {
+                      setNewPaymentMethod({...newPaymentMethod, cvv: value});
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="123"
+                  maxLength={4}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Cardholder Name *
+                </label>
+                <input
+                  type="text"
+                  value={newPaymentMethod.cardholderName}
+                  onChange={(e) => setNewPaymentMethod({...newPaymentMethod, cardholderName: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="John Doe"
+                />
+              </div>
+
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Billing Address</h4>
+                
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={newPaymentMethod.billingAddress.street}
+                    onChange={(e) => setNewPaymentMethod({
+                      ...newPaymentMethod, 
+                      billingAddress: {...newPaymentMethod.billingAddress, street: e.target.value}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="Street Address"
+                  />
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      value={newPaymentMethod.billingAddress.city}
+                      onChange={(e) => setNewPaymentMethod({
+                        ...newPaymentMethod, 
+                        billingAddress: {...newPaymentMethod.billingAddress, city: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      placeholder="City"
+                    />
+                    <input
+                      type="text"
+                      value={newPaymentMethod.billingAddress.state}
+                      onChange={(e) => setNewPaymentMethod({
+                        ...newPaymentMethod, 
+                        billingAddress: {...newPaymentMethod.billingAddress, state: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      placeholder="State"
+                    />
+                  </div>
+                  
+                  <input
+                    type="text"
+                    value={newPaymentMethod.billingAddress.zipCode}
+                    onChange={(e) => setNewPaymentMethod({
+                      ...newPaymentMethod, 
+                      billingAddress: {...newPaymentMethod.billingAddress, zipCode: e.target.value}
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="ZIP Code"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="setDefault"
+                  checked={newPaymentMethod.isDefault}
+                  onChange={(e) => setNewPaymentMethod({...newPaymentMethod, isDefault: e.target.checked})}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="setDefault" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  Set as default payment method
+                </label>
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={handleAddPaymentMethod}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+                >
+                  Add Payment Method
+                </button>
+                <button
+                  onClick={() => setShowAddPaymentMethod(false)}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Payment History */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment History</h3>
+        
         <div className="space-y-4">
           {payments.map((payment) => (
             <div key={payment.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <h4 className="font-medium text-gray-900 dark:text-white">
                       {payment.description}
-                    </h3>
+                    </h4>
                     <span className="text-sm text-blue-600 dark:text-blue-400">
                       {payment.invoice_number}
                     </span>
                   </div>
                   <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                    <span>Amount: ${payment.amount}</span>
-                    <span>Due: {formatDate(payment.due_date)}</span>
-                    {payment.payment_method && <span>Method: {payment.payment_method}</span>}
+                    <span>{formatDate(payment.created_at)}</span>
+                    {payment.payment_method && <span>• {payment.payment_method}</span>}
+                    {payment.paid_date && <span>• Paid on {formatDate(payment.paid_date)}</span>}
                   </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  payment.status === 'paid' 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    : payment.status === 'pending'
-                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                }`}>
-                  {payment.status}
-                </span>
+                <div className="flex items-center space-x-4">
+                  <span className="text-xl font-bold text-gray-900 dark:text-white">
+                    {formatCurrency(payment.amount)}
+                  </span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    payment.status === 'paid' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : payment.status === 'pending'
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                  }`}>
+                    {payment.status}
+                  </span>
+                </div>
               </div>
             </div>
           ))}
           {payments.length === 0 && (
             <div className="text-center py-8">
               <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">No payment records</p>
+              <p className="text-gray-500 dark:text-gray-400">No payment history</p>
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
 
-      {/* Add Payment Method Modal */}
-      {showAddPaymentMethod && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            {renderPaymentMethodForm()}
+  const renderRoomBooking = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Room Booking</h2>
+        <button 
+          onClick={() => setShowRoomBooking(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Book Room
+        </button>
+      </div>
+
+      {/* Room Booking Modal */}
+      {showRoomBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Book a Room</h3>
+              <button 
+                onClick={() => setShowRoomBooking(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {!selectedRoom ? (
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-900 dark:text-white">Select a Room</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                  {rooms.filter(room => room.status === 'available').map((room) => (
+                    <div 
+                      key={room.id} 
+                      onClick={() => setSelectedRoom(room)}
+                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <h5 className="font-medium text-gray-900 dark:text-white">
+                          Room {room.room_number}
+                        </h5>
+                        <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium">
+                          {room.status}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        {room.room_type} • Floor {room.floor}
+                      </p>
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                        {formatCurrency(room.daily_rate)}/night
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Capacity: {room.capacity} patient(s)
+                      </p>
+                      {room.equipment && room.equipment.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Equipment:</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {room.equipment.slice(0, 3).map((item, index) => (
+                              <span key={index} className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                                {item}
+                              </span>
+                            ))}
+                            {room.equipment.length > 3 && (
+                              <span className="text-xs text-gray-500">+{room.equipment.length - 3} more</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                    Selected Room: {selectedRoom.room_number}
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedRoom.room_type} • Floor {selectedRoom.floor} • {formatCurrency(selectedRoom.daily_rate)}/night
+                  </p>
+                  <button 
+                    onClick={() => setSelectedRoom(null)}
+                    className="text-blue-600 dark:text-blue-400 text-sm mt-2"
+                  >
+                    Change Room
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Check-in Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={bookingData.checkInDate}
+                      onChange={(e) => setBookingData({...bookingData, checkInDate: e.target.value})}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Check-out Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={bookingData.checkOutDate}
+                      onChange={(e) => setBookingData({...bookingData, checkOutDate: e.target.value})}
+                      min={bookingData.checkInDate || new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Payment Method *
+                  </label>
+                  <select
+                    value={bookingData.paymentMethodId}
+                    onChange={(e) => setBookingData({...bookingData, paymentMethodId: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="">Select payment method</option>
+                    {paymentMethods.map((method) => (
+                      <option key={method.id} value={method.id}>
+                        {method.cardBrand} •••• {method.lastFour} {method.isDefault ? '(Default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {paymentMethods.length === 0 && (
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                      Please add a payment method first
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Special Requirements
+                  </label>
+                  <textarea
+                    value={bookingData.specialRequirements}
+                    onChange={(e) => setBookingData({...bookingData, specialRequirements: e.target.value})}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                    placeholder="Any special requirements or requests..."
+                  />
+                </div>
+
+                {bookingData.checkInDate && bookingData.checkOutDate && (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                    <h5 className="font-medium text-gray-900 dark:text-white mb-2">Booking Summary</h5>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Room:</span>
+                        <span className="text-gray-900 dark:text-white">{selectedRoom.room_number} ({selectedRoom.room_type})</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Check-in:</span>
+                        <span className="text-gray-900 dark:text-white">{formatDate(bookingData.checkInDate)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Check-out:</span>
+                        <span className="text-gray-900 dark:text-white">{formatDate(bookingData.checkOutDate)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Nights:</span>
+                        <span className="text-gray-900 dark:text-white">
+                          {Math.ceil((new Date(bookingData.checkOutDate) - new Date(bookingData.checkInDate)) / (1000 * 60 * 60 * 24))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between font-bold text-lg border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
+                        <span className="text-gray-900 dark:text-white">Total:</span>
+                        <span className="text-blue-600 dark:text-blue-400">{formatCurrency(calculateTotalCost())}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={handleRoomBooking}
+                    disabled={loading || !bookingData.checkInDate || !bookingData.checkOutDate || !bookingData.paymentMethodId}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium"
+                  >
+                    {loading ? 'Processing Payment...' : `Book Room & Pay ${formatCurrency(calculateTotalCost())}`}
+                  </button>
+                  <button
+                    onClick={() => setShowRoomBooking(false)}
+                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      {/* Current Bookings */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">My Room Bookings</h3>
+        
+        <div className="space-y-4">
+          {roomBookings.map((booking) => (
+            <div key={booking.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <h4 className="font-medium text-gray-900 dark:text-white">
+                      Room {booking.room?.room_number}
+                    </h4>
+                    <span className="text-sm text-blue-600 dark:text-blue-400">
+                      {booking.room?.room_type}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    <span>{formatDate(booking.check_in_date)} - {formatDate(booking.check_out_date)}</span>
+                    <span>• {formatCurrency(booking.room?.daily_rate)}/night</span>
+                  </div>
+                  {booking.special_requirements && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Special Requirements: {booking.special_requirements}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center space-x-4">
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">
+                    {formatCurrency(booking.total_cost)}
+                  </span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    booking.status === 'confirmed' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : booking.status === 'pending'
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                  }`}>
+                    {booking.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+          {roomBookings.length === 0 && (
+            <div className="text-center py-8">
+              <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 mb-4">No room bookings</p>
+              <button 
+                onClick={() => setShowRoomBooking(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              >
+                Book Your First Room
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 
@@ -1505,16 +1742,16 @@ const PatientDashboard = () => {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Notifications</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Email Notifications</span>
+                <input type="checkbox" className="toggle" defaultChecked />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">SMS Notifications</span>
+                <input type="checkbox" className="toggle" />
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-gray-700 dark:text-gray-300">Appointment Reminders</span>
                 <input type="checkbox" className="toggle" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Test Results</span>
-                <input type="checkbox" className="toggle" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Prescription Refills</span>
-                <input type="checkbox" className="toggle" />
               </div>
             </div>
           </div>
@@ -1527,7 +1764,7 @@ const PatientDashboard = () => {
                 <input type="checkbox" className="toggle" defaultChecked />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-700 dark:text-gray-300">Marketing communications</span>
+                <span className="text-gray-700 dark:text-gray-300">Allow marketing communications</span>
                 <input type="checkbox" className="toggle" />
               </div>
             </div>
