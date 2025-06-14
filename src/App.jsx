@@ -25,8 +25,6 @@ import DoctorDashboard from "./pages/dashboard/DoctorDashboard.jsx";
 import NurseDashboard from "./pages/dashboard/NurseDashboard.jsx";
 import AdminDashboard from "./pages/dashboard/AdminDashboard.jsx";
 
-
-
 function App() {
   const { theme } = useTheme();
   const { user, loading } = useAuth();
@@ -55,18 +53,17 @@ function App() {
       <Route path="/contact" element={<Contact />} />
 
       {/* Auth Routes */}
-
       <Route
         path="/login"
-        element={!user ? <Login /> : <Navigate to="/dashboard" />}
+        element={!user ? <Login /> : <Navigate to="/dashboard" replace />}
       />
       <Route
         path="/register"
-        element={!user ? <Register /> : <Navigate to="/dashboard" />}
+        element={!user ? <Register /> : <Navigate to="/dashboard" replace />}
       />
       <Route
         path="/forgot-password"
-        element={!user ? <ForgotPassword /> : <Navigate to="/dashboard" />}
+        element={!user ? <ForgotPassword /> : <Navigate to="/dashboard" replace />}
       />
 
       {/* Protected Routes */}
@@ -76,7 +73,7 @@ function App() {
           path="/dashboard"
           element={
             !user ? (
-              <Navigate to="/login" />
+              <Navigate to="/login" replace />
             ) : user.role === "patient" ? (
               <PatientDashboard />
             ) : user.role === "doctor" ? (
@@ -86,14 +83,14 @@ function App() {
             ) : user.role === "admin" ? (
               <AdminDashboard />
             ) : (
-              <Navigate to="/login" />
+              <Navigate to="/login" replace />
             )
           }
         />
       </Route>
 
       {/* Catch all route */}
-      <Route path="*" element={<Navigate to="/" />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
