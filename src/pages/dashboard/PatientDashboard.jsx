@@ -24,7 +24,21 @@ import {
   Trash2,
   CheckCircle,
   AlertCircle,
-  XCircle
+  XCircle,
+  Search,
+  Filter,
+  Send,
+  Star,
+  DollarSign,
+  Stethoscope,
+  Pill,
+  FileX,
+  MessageSquare,
+  CalendarPlus,
+  UserPlus,
+  CreditCard as PaymentIcon,
+  Home,
+  Bed
 } from 'lucide-react';
 
 const PatientDashboard = () => {
@@ -37,6 +51,25 @@ const PatientDashboard = () => {
   const [roomBookings, setRoomBookings] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(false);
+  
+  // Form states
+  const [showAppointmentForm, setShowAppointmentForm] = useState(false);
+  const [showMessageForm, setShowMessageForm] = useState(false);
+  const [showRoomBookingForm, setShowRoomBookingForm] = useState(false);
+  const [showNurseRequestForm, setShowNurseRequestForm] = useState(false);
+  
+  // Available doctors and rooms (mock data - would come from API)
+  const [availableDoctors] = useState([
+    { id: 1, name: 'Dr. Sarah Johnson', specialization: 'Cardiologist', available_times: ['09:00', '10:00', '11:00', '14:00', '15:00'] },
+    { id: 2, name: 'Dr. Michael Chen', specialization: 'Neurologist', available_times: ['08:00', '09:00', '13:00', '14:00', '16:00'] },
+    { id: 3, name: 'Dr. Emily Williams', specialization: 'Pediatrician', available_times: ['10:00', '11:00', '15:00', '16:00', '17:00'] }
+  ]);
+  
+  const [availableRooms] = useState([
+    { id: 1, room_number: '101A', room_type: 'Standard', daily_rate: 150, status: 'available' },
+    { id: 2, room_number: '102B', room_type: 'Deluxe', daily_rate: 250, status: 'available' },
+    { id: 3, room_number: '201A', room_type: 'Suite', daily_rate: 400, status: 'available' }
+  ]);
 
   useEffect(() => {
     if (user?.id) {
@@ -78,6 +111,11 @@ const PatientDashboard = () => {
 
   const handleNavigation = (section) => {
     setActiveCase(section);
+    // Close any open forms when navigating
+    setShowAppointmentForm(false);
+    setShowMessageForm(false);
+    setShowRoomBookingForm(false);
+    setShowNurseRequestForm(false);
   };
 
   const formatDate = (dateString) => {
@@ -91,12 +129,130 @@ const PatientDashboard = () => {
     });
   };
 
+  const handleBookAppointment = async (appointmentData) => {
+    try {
+      const newAppointment = {
+        patient_id: user.id,
+        doctor_id: appointmentData.doctor_id,
+        appointment_date: appointmentData.date,
+        appointment_time: appointmentData.time,
+        appointment_type: appointmentData.type,
+        notes: appointmentData.notes,
+        status: 'pending'
+      };
+      
+      await dbService.createAppointment(newAppointment);
+      await loadPatientData(); // Refresh data
+      setShowAppointmentForm(false);
+      alert('Appointment booked successfully!');
+    } catch (error) {
+      console.error('Error booking appointment:', error);
+      alert('Failed to book appointment. Please try again.');
+    }
+  };
+
+  const handleSendMessage = async (messageData) => {
+    try {
+      const newMessage = {
+        sender_id: user.id,
+        recipient_id: messageData.recipient_id,
+        subject: messageData.subject,
+        content: messageData.content,
+        priority: messageData.priority || 'medium'
+      };
+      
+      await dbService.createMessage(newMessage);
+      await loadPatientData(); // Refresh data
+      setShowMessageForm(false);
+      alert('Message sent successfully!');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert('Failed to send message. Please try again.');
+    }
+  };
+
+  const handleBookRoom = async (roomData) => {
+    try {
+      const newBooking = {
+        patient_id: user.id,
+        room_id: roomData.room_id,
+        check_in_date: roomData.check_in_date,
+        check_out_date: roomData.check_out_date,
+        special_requirements: roomData.special_requirements,
+        status: 'pending'
+      };
+      
+      await dbService.createRoomBooking(newBooking);
+      await loadPatientData(); // Refresh data
+      setShowRoomBookingForm(false);
+      alert('Room booking request submitted successfully!');
+    } catch (error) {
+      console.error('Error booking room:', error);
+      alert('Failed to book room. Please try again.');
+    }
+  };
+
   const renderDashboardOverview = () => (
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-6 text-white">
         <h1 className="text-2xl font-bold mb-2">Welcome back, {user?.full_name}!</h1>
         <p className="text-blue-100">Here's your health overview for today</p>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <button
+          onClick={() => setShowAppointmentForm(true)}
+          className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-left">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Book</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">Appointment</p>
+            </div>
+            <CalendarPlus className="h-8 w-8 text-blue-500 group-hover:scale-110 transition-transform" />
+          </div>
+        </button>
+
+        <button
+          onClick={() => setShowMessageForm(true)}
+          className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-left">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Send</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">Message</p>
+            </div>
+            <MessageSquare className="h-8 w-8 text-green-500 group-hover:scale-110 transition-transform" />
+          </div>
+        </button>
+
+        <button
+          onClick={() => setShowRoomBookingForm(true)}
+          className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-left">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Book</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">Room</p>
+            </div>
+            <Bed className="h-8 w-8 text-purple-500 group-hover:scale-110 transition-transform" />
+          </div>
+        </button>
+
+        <button
+          onClick={() => setShowNurseRequestForm(true)}
+          className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-left">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Request</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">Home Care</p>
+            </div>
+            <Home className="h-8 w-8 text-orange-500 group-hover:scale-110 transition-transform" />
+          </div>
+        </button>
       </div>
 
       {/* Quick Stats */}
@@ -218,11 +374,421 @@ const PatientDashboard = () => {
     </div>
   );
 
+  const renderAppointmentForm = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Book Appointment</h3>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          handleBookAppointment({
+            doctor_id: formData.get('doctor_id'),
+            date: formData.get('date'),
+            time: formData.get('time'),
+            type: formData.get('type'),
+            notes: formData.get('notes')
+          });
+        }}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Doctor
+              </label>
+              <select
+                name="doctor_id"
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">Choose a doctor</option>
+                {availableDoctors.map((doctor) => (
+                  <option key={doctor.id} value={doctor.id}>
+                    {doctor.name} - {doctor.specialization}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Appointment Date
+              </label>
+              <input
+                type="date"
+                name="date"
+                required
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Preferred Time
+              </label>
+              <select
+                name="time"
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">Select time</option>
+                <option value="09:00">9:00 AM</option>
+                <option value="10:00">10:00 AM</option>
+                <option value="11:00">11:00 AM</option>
+                <option value="14:00">2:00 PM</option>
+                <option value="15:00">3:00 PM</option>
+                <option value="16:00">4:00 PM</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Appointment Type
+              </label>
+              <select
+                name="type"
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">Select type</option>
+                <option value="consultation">General Consultation</option>
+                <option value="follow-up">Follow-up</option>
+                <option value="check-up">Regular Check-up</option>
+                <option value="emergency">Emergency</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Notes (Optional)
+              </label>
+              <textarea
+                name="notes"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="Any specific concerns or notes..."
+              />
+            </div>
+          </div>
+
+          <div className="flex space-x-3 mt-6">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              Book Appointment
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAppointmentForm(false)}
+              className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  const renderMessageForm = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Send Message</h3>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          handleSendMessage({
+            recipient_id: formData.get('recipient_id'),
+            subject: formData.get('subject'),
+            content: formData.get('content'),
+            priority: formData.get('priority')
+          });
+        }}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Send To
+              </label>
+              <select
+                name="recipient_id"
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">Select recipient</option>
+                {availableDoctors.map((doctor) => (
+                  <option key={doctor.id} value={doctor.id}>
+                    {doctor.name} - {doctor.specialization}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Subject
+              </label>
+              <input
+                type="text"
+                name="subject"
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="Message subject"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Priority
+              </label>
+              <select
+                name="priority"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Message
+              </label>
+              <textarea
+                name="content"
+                rows={4}
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="Type your message here..."
+              />
+            </div>
+          </div>
+
+          <div className="flex space-x-3 mt-6">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              Send Message
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowMessageForm(false)}
+              className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  const renderRoomBookingForm = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Book Room</h3>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          handleBookRoom({
+            room_id: formData.get('room_id'),
+            check_in_date: formData.get('check_in_date'),
+            check_out_date: formData.get('check_out_date'),
+            special_requirements: formData.get('special_requirements')
+          });
+        }}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Room
+              </label>
+              <select
+                name="room_id"
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">Choose a room</option>
+                {availableRooms.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    Room {room.room_number} - {room.room_type} (${room.daily_rate}/day)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Check-in Date
+              </label>
+              <input
+                type="date"
+                name="check_in_date"
+                required
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Check-out Date
+              </label>
+              <input
+                type="date"
+                name="check_out_date"
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Special Requirements (Optional)
+              </label>
+              <textarea
+                name="special_requirements"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="Any special requirements or requests..."
+              />
+            </div>
+          </div>
+
+          <div className="flex space-x-3 mt-6">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              Book Room
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowRoomBookingForm(false)}
+              className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  const renderNurseRequestForm = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Request Home Care</h3>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          // Handle nurse request submission
+          alert('Home care request submitted successfully!');
+          setShowNurseRequestForm(false);
+        }}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Service Type
+              </label>
+              <select
+                name="service_type"
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">Select service</option>
+                <option value="wound-care">Wound Care</option>
+                <option value="medication-management">Medication Management</option>
+                <option value="physical-therapy">Physical Therapy</option>
+                <option value="general-nursing">General Nursing Care</option>
+                <option value="post-surgery-care">Post-Surgery Care</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Preferred Date
+              </label>
+              <input
+                type="date"
+                name="preferred_date"
+                required
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Preferred Time
+              </label>
+              <select
+                name="preferred_time"
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">Select time</option>
+                <option value="08:00">8:00 AM</option>
+                <option value="10:00">10:00 AM</option>
+                <option value="14:00">2:00 PM</option>
+                <option value="16:00">4:00 PM</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Address
+              </label>
+              <textarea
+                name="address"
+                rows={2}
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="Your home address"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Special Instructions
+              </label>
+              <textarea
+                name="instructions"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="Any special instructions or medical conditions to note..."
+              />
+            </div>
+          </div>
+
+          <div className="flex space-x-3 mt-6">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              Submit Request
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowNurseRequestForm(false)}
+              className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
   const renderAppointments = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Appointments</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <button
+          onClick={() => setShowAppointmentForm(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Book Appointment
         </button>
@@ -284,6 +850,12 @@ const PatientDashboard = () => {
               <div className="text-center py-8">
                 <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 dark:text-gray-400">No appointments scheduled</p>
+                <button
+                  onClick={() => setShowAppointmentForm(true)}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Book Your First Appointment
+                </button>
               </div>
             )}
           </div>
@@ -365,7 +937,10 @@ const PatientDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Messages</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <button
+          onClick={() => setShowMessageForm(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
           <Plus className="h-4 w-4 mr-2" />
           New Message
         </button>
@@ -426,6 +1001,12 @@ const PatientDashboard = () => {
               <div className="text-center py-8">
                 <Mail className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 dark:text-gray-400">No messages</p>
+                <button
+                  onClick={() => setShowMessageForm(true)}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Send Your First Message
+                </button>
               </div>
             )}
           </div>
@@ -516,7 +1097,10 @@ const PatientDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Room Bookings</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <button
+          onClick={() => setShowRoomBookingForm(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Book Room
         </button>
@@ -577,6 +1161,12 @@ const PatientDashboard = () => {
               <div className="text-center py-8">
                 <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 dark:text-gray-400">No room bookings</p>
+                <button
+                  onClick={() => setShowRoomBookingForm(true)}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Book Your First Room
+                </button>
               </div>
             )}
           </div>
@@ -658,6 +1248,25 @@ const PatientDashboard = () => {
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Emergency Contact
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                type="text"
+                value={user?.emergency_contact || ''}
+                placeholder="Emergency contact name"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+              <input
+                type="tel"
+                value={user?.emergency_phone || ''}
+                placeholder="Emergency contact phone"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="mt-6">
@@ -690,6 +1299,10 @@ const PatientDashboard = () => {
                 <span className="text-gray-700 dark:text-gray-300">Appointment Reminders</span>
                 <input type="checkbox" className="toggle" defaultChecked />
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Test Results Notifications</span>
+                <input type="checkbox" className="toggle" defaultChecked />
+              </div>
             </div>
           </div>
 
@@ -704,6 +1317,10 @@ const PatientDashboard = () => {
                 <span className="text-gray-700 dark:text-gray-300">Allow research participation</span>
                 <input type="checkbox" className="toggle" />
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Emergency contact access</span>
+                <input type="checkbox" className="toggle" defaultChecked />
+              </div>
             </div>
           </div>
 
@@ -716,6 +1333,10 @@ const PatientDashboard = () => {
               <br />
               <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                 Enable Two-Factor Authentication
+              </button>
+              <br />
+              <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                Download My Data
               </button>
             </div>
           </div>
@@ -762,6 +1383,12 @@ const PatientDashboard = () => {
       onNavigate={handleNavigation}
     >
       {renderContent()}
+      
+      {/* Modal Forms */}
+      {showAppointmentForm && renderAppointmentForm()}
+      {showMessageForm && renderMessageForm()}
+      {showRoomBookingForm && renderRoomBookingForm()}
+      {showNurseRequestForm && renderNurseRequestForm()}
     </DashboardLayout>
   );
 };
