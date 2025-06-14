@@ -21,7 +21,11 @@ import {
   Calendar,
   Heart,
   Thermometer,
-  Stethoscope
+  Stethoscope,
+  Save,
+  X,
+  Search,
+  Filter
 } from 'lucide-react';
 
 const NurseDashboard = () => {
@@ -33,6 +37,12 @@ const NurseDashboard = () => {
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(false);
+  const [editingPatient, setEditingPatient] = useState(null);
+  const [showNewPatientForm, setShowNewPatientForm] = useState(false);
+  const [showNewShiftForm, setShowNewShiftForm] = useState(false);
+  const [showNewRequestForm, setShowNewRequestForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
     if (user?.id) {
@@ -54,16 +64,40 @@ const NurseDashboard = () => {
       setRequests(requestsData || []);
       setStats(statsData || {});
 
-      // Mock data for patients and shifts (would come from actual queries)
-      setPatients([
+      // Load patients from appointments and medical records
+      const appointmentsData = await dbService.getAppointments(user.id, 'nurse');
+      const uniquePatients = appointmentsData?.reduce((acc, appointment) => {
+        if (appointment.patient && !acc.find(p => p.id === appointment.patient_id)) {
+          acc.push({
+            id: appointment.patient_id,
+            ...appointment.patient,
+            lastVisit: appointment.appointment_date,
+            condition: appointment.diagnosis || 'General care',
+            status: 'stable',
+            vitals: {
+              temperature: '98.6°F',
+              bloodPressure: '120/80',
+              heartRate: '72 bpm',
+              oxygenSat: '98%'
+            },
+            medications: ['As prescribed'],
+            notes: appointment.notes || 'Regular monitoring'
+          });
+        }
+        return acc;
+      }, []) || [];
+
+      // Add some mock patients for demonstration
+      const mockPatients = [
         {
-          id: 1,
-          name: 'John Smith',
+          id: 'mock-1',
+          full_name: 'John Smith',
+          email: 'john.smith@email.com',
           age: 65,
           room: '101A',
           condition: 'Post-surgery recovery',
           status: 'stable',
-          lastVitals: '2024-01-15 08:00',
+          lastVisit: new Date().toISOString().split('T')[0],
           vitals: {
             temperature: '98.6°F',
             bloodPressure: '120/80',
@@ -72,19 +106,50 @@ const NurseDashboard = () => {
           },
           medications: ['Aspirin 81mg', 'Lisinopril 10mg'],
           notes: 'Patient recovering well from surgery'
+        },
+        {
+          id: 'mock-2',
+          full_name: 'Mary Johnson',
+          email: 'mary.johnson@email.com',
+          age: 72,
+          room: '102B',
+          condition: 'Diabetes management',
+          status: 'monitoring',
+          lastVisit: new Date().toISOString().split('T')[0],
+          vitals: {
+            temperature: '99.1°F',
+            bloodPressure: '140/90',
+            heartRate: '78 bpm',
+            oxygenSat: '96%'
+          },
+          medications: ['Metformin 500mg', 'Insulin'],
+          notes: 'Blood sugar levels need monitoring'
         }
-      ]);
+      ];
 
+      setPatients([...uniquePatients, ...mockPatients]);
+
+      // Mock shifts data
       setShifts([
         {
           id: 1,
-          date: '2024-01-15',
+          date: new Date().toISOString().split('T')[0],
           startTime: '07:00',
           endTime: '19:00',
           type: 'Day Shift',
           status: 'active',
           patients: 8,
           location: 'ICU Ward'
+        },
+        {
+          id: 2,
+          date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+          startTime: '19:00',
+          endTime: '07:00',
+          type: 'Night Shift',
+          status: 'scheduled',
+          patients: 6,
+          location: 'General Ward'
         }
       ]);
 
@@ -110,6 +175,87 @@ const NurseDashboard = () => {
     });
   };
 
+  const handleUpdateVitals = (patientId) => {
+    const newVitals = {
+      temperature: prompt('Enter temperature (°F):') || '98.6°F',
+      bloodPressure: prompt('Enter blood pressure:') || '120/80',
+      heartRate: prompt('Enter heart rate (bpm):') || '72 bpm',
+      oxygenSat: prompt('Enter oxygen saturation (%):') || '98%'
+    };
+
+    setPatients(patients.map(patient => 
+      patient.id === patientId 
+        ? { ...patient, vitals: newVitals, lastVitals: new Date().toLocaleString() }
+        : patient
+    ));
+    
+    alert('Vitals updated successfully!');
+  };
+
+  const handleAcceptRequest = async (requestId) => {
+    try {
+      await dbService.updateNurseRequest(requestId, {
+        nurse_id: user.id,
+        status: 'confirmed'
+      });
+      
+      setRequests(requests.map(request => 
+        request.id === requestId 
+          ? { ...request, status: 'confirmed', nurse_id: user.id }
+          : request
+      ));
+      
+      alert('Request accepted successfully!');
+    } catch (error) {
+      console.error('Error accepting request:', error);
+      alert('Failed to accept request');
+    }
+  };
+
+  const handleCompleteRequest = async (requestId) => {
+    try {
+      await dbService.updateNurseRequest(requestId, {
+        status: 'completed'
+      });
+      
+      setRequests(requests.map(request => 
+        request.id === requestId 
+          ? { ...request, status: 'completed' }
+          : request
+      ));
+      
+      alert('Request marked as completed!');
+    } catch (error) {
+      console.error('Error completing request:', error);
+      alert('Failed to complete request');
+    }
+  };
+
+  const handleCreateNewRequest = async (requestData) => {
+    try {
+      const newRequest = await dbService.createNurseRequest({
+        ...requestData,
+        patient_id: user.id, // In real app, this would be selected
+        nurse_id: user.id,
+        status: 'pending'
+      });
+      
+      setRequests([...requests, newRequest]);
+      setShowNewRequestForm(false);
+      alert('New request created successfully!');
+    } catch (error) {
+      console.error('Error creating request:', error);
+      alert('Failed to create request');
+    }
+  };
+
+  const filteredRequests = requests.filter(request => {
+    const matchesSearch = request.patient?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         request.request_type?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || request.status === filterStatus;
+    return matchesSearch && matchesFilter;
+  });
+
   const renderDashboardOverview = () => (
     <div className="space-y-6">
       {/* Welcome Section */}
@@ -124,7 +270,7 @@ const NurseDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Active Requests</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.activeRequests || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{requests.filter(r => r.status === 'in_progress').length}</p>
             </div>
             <Users className="h-8 w-8 text-blue-500" />
           </div>
@@ -134,7 +280,7 @@ const NurseDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Pending Requests</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.pendingRequests || 0}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{requests.filter(r => r.status === 'pending').length}</p>
             </div>
             <Clock className="h-8 w-8 text-green-500" />
           </div>
@@ -143,8 +289,8 @@ const NurseDashboard = () => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Total Requests</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalRequests || 0}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Patients</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{patients.length}</p>
             </div>
             <Activity className="h-8 w-8 text-orange-500" />
           </div>
@@ -153,15 +299,15 @@ const NurseDashboard = () => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Unique Patients</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.uniquePatients || 0}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Completed Today</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{requests.filter(r => r.status === 'completed').length}</p>
             </div>
-            <AlertCircle className="h-8 w-8 text-red-500" />
+            <CheckCircle className="h-8 w-8 text-purple-500" />
           </div>
         </div>
       </div>
 
-      {/* Recent Requests */}
+      {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Requests</h3>
@@ -216,11 +362,6 @@ const NurseDashboard = () => {
                 </span>
               </div>
             ))}
-            {shifts.length === 0 && (
-              <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-                No shifts scheduled
-              </p>
-            )}
           </div>
         </div>
       </div>
@@ -231,7 +372,10 @@ const NurseDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Patients</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <button 
+          onClick={() => setShowNewPatientForm(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Patient
         </button>
@@ -242,8 +386,10 @@ const NurseDashboard = () => {
           <div key={patient.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{patient.name}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Age: {patient.age} | Room: {patient.room}</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{patient.full_name}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {patient.age ? `Age: ${patient.age}` : ''} {patient.room ? `| Room: ${patient.room}` : ''}
+                </p>
               </div>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                 patient.status === 'stable' 
@@ -282,15 +428,15 @@ const NurseDashboard = () => {
                     {patient.vitals.oxygenSat}
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Last updated: {patient.lastVitals}
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                  Last updated: {patient.lastVitals || 'Today'}
                 </p>
               </div>
 
               <div>
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Medications</p>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {patient.medications.map((med, index) => (
+                  {patient.medications?.map((med, index) => (
                     <span key={index} className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
                       {med}
                     </span>
@@ -307,13 +453,19 @@ const NurseDashboard = () => {
             </div>
 
             <div className="flex space-x-2 mt-4">
-              <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm">
+              <button 
+                onClick={() => handleUpdateVitals(patient.id)}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm"
+              >
                 Update Vitals
               </button>
               <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2">
                 <Eye className="h-4 w-4" />
               </button>
-              <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2">
+              <button 
+                onClick={() => setEditingPatient(patient)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2"
+              >
                 <Edit className="h-4 w-4" />
               </button>
             </div>
@@ -333,7 +485,10 @@ const NurseDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Shifts</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <button 
+          onClick={() => setShowNewShiftForm(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Request Shift
         </button>
@@ -384,12 +539,6 @@ const NurseDashboard = () => {
                 </div>
               </div>
             ))}
-            {shifts.length === 0 && (
-              <div className="text-center py-8">
-                <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No shifts scheduled</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -400,16 +549,44 @@ const NurseDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Home Care Requests</h2>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <button 
+          onClick={() => setShowNewRequestForm(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+        >
           <Plus className="h-4 w-4 mr-2" />
           New Request
         </button>
       </div>
 
+      {/* Search and Filter */}
+      <div className="flex space-x-4">
+        <div className="relative flex-1">
+          <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search requests..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-4 py-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        >
+          <option value="all">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-6">
           <div className="space-y-4">
-            {requests.map((request) => (
+            {filteredRequests.map((request) => (
               <div key={request.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
@@ -462,13 +639,26 @@ const NurseDashboard = () => {
                         ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                         : request.status === 'pending'
                         ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : request.status === 'in_progress'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                     }`}>
                       {request.status}
                     </span>
                     {request.status === 'pending' && (
-                      <button className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
+                      <button 
+                        onClick={() => handleAcceptRequest(request.id)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                      >
                         Accept
+                      </button>
+                    )}
+                    {request.status === 'in_progress' && (
+                      <button 
+                        onClick={() => handleCompleteRequest(request.id)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Complete
                       </button>
                     )}
                     <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -478,10 +668,10 @@ const NurseDashboard = () => {
                 </div>
               </div>
             ))}
-            {requests.length === 0 && (
+            {filteredRequests.length === 0 && (
               <div className="text-center py-8">
                 <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No requests available</p>
+                <p className="text-gray-500 dark:text-gray-400">No requests found</p>
               </div>
             )}
           </div>
@@ -500,12 +690,29 @@ const NurseDashboard = () => {
         </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <div className="text-center py-8">
-            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">Reports feature coming soon</p>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Daily Report</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Generate daily activity report</p>
+          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+            Generate
+          </button>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Patient Summary</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Summary of patient care activities</p>
+          <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+            Generate
+          </button>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Shift Report</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Detailed shift activity report</p>
+          <button className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+            Generate
+          </button>
         </div>
       </div>
     </div>
