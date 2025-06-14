@@ -3,17 +3,42 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+console.log('Supabase URL:', supabaseUrl)
+console.log('Supabase Key exists:', !!supabaseAnonKey)
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+  console.error('Missing Supabase environment variables:', {
+    url: !!supabaseUrl,
+    key: !!supabaseAnonKey
+  })
+  throw new Error('Missing Supabase environment variables. Please check your .env file.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+})
+
+// Test connection
+supabase.from('profiles').select('count', { count: 'exact', head: true })
+  .then(({ error }) => {
+    if (error) {
+      console.error('Supabase connection test failed:', error)
+    } else {
+      console.log('Supabase connection successful')
+    }
+  })
 
 // Database service functions
 export const dbService = {
   // Profile operations
   async getProfile(userId) {
     try {
+      console.log('Fetching profile for user:', userId)
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -23,12 +48,14 @@ export const dbService = {
       if (error) {
         if (error.code === 'PGRST116') {
           // No rows returned - profile doesn't exist
+          console.log('Profile not found for user:', userId)
           return null;
         }
         console.error('Error fetching profile:', error)
         throw error
       }
       
+      console.log('Profile fetched successfully:', data)
       return data
     } catch (error) {
       console.error('Profile fetch error:', error)
@@ -93,6 +120,117 @@ export const dbService = {
     } catch (error) {
       console.error('Profile deletion error:', error)
       throw error
+    }
+  },
+
+  // Photo upload operations
+  async uploadProfilePhoto(userId, file) {
+    try {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Invalid file type. Please upload a JPEG, PNG, or WebP image.');
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        throw new Error('File size too large. Please upload an image smaller than 5MB.');
+      }
+
+      // Create unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      console.log('Uploading file:', fileName, 'Size:', file.size, 'Type:', file.type);
+
+      // Upload file to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('File uploaded successfully:', uploadData);
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
+      console.log('Public URL:', publicUrl);
+
+      // Update profile with new avatar URL
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        // Try to clean up uploaded file if profile update fails
+        await supabase.storage.from('avatars').remove([filePath]);
+        throw profileError;
+      }
+
+      console.log('Profile updated with new avatar URL');
+      return {
+        url: publicUrl,
+        profile: profileData
+      };
+
+    } catch (error) {
+      console.error('Photo upload error:', error);
+      throw error;
+    }
+  },
+
+  async deleteProfilePhoto(userId, avatarUrl) {
+    try {
+      if (!avatarUrl) return;
+
+      // Extract file path from URL
+      const urlParts = avatarUrl.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      const filePath = `avatars/${fileName}`;
+
+      // Delete file from storage
+      const { error: deleteError } = await supabase.storage
+        .from('avatars')
+        .remove([filePath]);
+
+      if (deleteError) {
+        console.error('Error deleting file from storage:', deleteError);
+        // Don't throw error here, continue with profile update
+      }
+
+      // Update profile to remove avatar URL
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating profile:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Delete photo error:', error);
+      throw error;
     }
   },
 
